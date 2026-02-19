@@ -11,6 +11,7 @@ import org.steve.sonicpulse.client.SonicPulseClient;
 import org.steve.sonicpulse.client.config.SonicPulseConfig;
 import java.util.List;
 import java.util.ArrayList;
+import java.io.File;
 
 public class ConfigScreen extends Screen {
     private static final int BOX_WIDTH = 270, BOX_HEIGHT = 245;
@@ -40,6 +41,10 @@ public class ConfigScreen extends Screen {
         0xFF98FF98, // Mint
         0xFFA52A2A  // Brown
     };
+    private int localScrollOffset = 0;
+    private String localFolderPath = null;
+    private List<File> localSongs = new ArrayList<>();
+
     public ConfigScreen() { super(Text.literal("SonicPulse Config")); for(int i=0; i<BAR_COLORS.length; i++) { if(BAR_COLORS[i]==config.barColor) colorIndex=i; if(BAR_COLORS[i]==config.titleColor) titleColorIndex=i; } }
 
     @Override protected void init() { refreshWidgets(); }
@@ -47,12 +52,15 @@ public class ConfigScreen extends Screen {
     private void refreshWidgets() {
         this.clearChildren();
         int x = (width - BOX_WIDTH) / 2, y = (height - BOX_HEIGHT) / 2;
+        int visible = 7;
+
         addDrawableChild(ButtonWidget.builder(Text.literal("PLAY"), b -> { currentTab = 0; refreshWidgets(); }).dimensions(x + 5, y + 25, 45, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("VISUALS"), b -> { currentTab = 1; refreshWidgets(); }).dimensions(x + 52, y + 25, 65, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("LAYOUT"), b -> { currentTab = 2; refreshWidgets(); }).dimensions(x + 119, y + 25, 45, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("HISTORY"), b -> { currentTab = 3; refreshWidgets(); }).dimensions(x + 166, y + 25, 60, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("RADIO"), b -> { currentTab = 4; refreshWidgets(); }).dimensions(x + 228, y + 25, 37, 20).build());
-        
+        addDrawableChild(ButtonWidget.builder(Text.literal("LOCAL"), b -> { currentTab = 5; refreshWidgets(); }).dimensions(x + 5, y + 50, 60, 20).build());
+
         switch (currentTab) {
             case 0:
                 // Start with an empty URL field; don't pre-fill with lastUrl (history handles persistence)
@@ -125,7 +133,6 @@ public class ConfigScreen extends Screen {
                 List<SonicPulseConfig.HistoryEntry> hist = showOnlyFavorites ? config.getFavoriteHistory() : config.history;
                 int sY = filterY + 30;
                 int leftX = x + 5;
-                int visible = 7;
                 int total = hist.size();
                 // Clamp scroll offset
                 if (historyScrollOffset > Math.max(0, total - visible)) historyScrollOffset = Math.max(0, total - visible);
@@ -204,6 +211,51 @@ public class ConfigScreen extends Screen {
                 if (radioStreams.size() > v) {
                     addDrawableChild(ButtonWidget.builder(Text.literal("▲"), b -> { if (radioScrollOffset > 0) { radioScrollOffset--; refreshWidgets(); } }).dimensions(x + BOX_WIDTH - 30, rdY, 25, 20).build());
                     addDrawableChild(ButtonWidget.builder(Text.literal("▼"), b -> { if (radioScrollOffset < radioStreams.size() - v) { radioScrollOffset++; refreshWidgets(); } }).dimensions(x + BOX_WIDTH - 30, rdY + (v - 1) * 22, 25, 20).build());
+                }
+                break;
+            case 5:
+                // LOCAL tab UI
+                int folderBtnY = y + 80;
+                addDrawableChild(ButtonWidget.builder(Text.literal("Load Folder"), b -> {
+                    // Prompt for folder path using a simple text input dialog
+                    urlField = new TextFieldWidget(textRenderer, x + 10, folderBtnY + 25, BOX_WIDTH - 20, 20, Text.literal("Enter folder path"));
+                    urlField.setMaxLength(256);
+                    urlField.setText(localFolderPath != null ? localFolderPath : "");
+                    addSelectableChild(urlField);
+                    addDrawableChild(ButtonWidget.builder(Text.literal("OK"), bb -> {
+                        String folderPath = urlField.getText();
+                        if (!folderPath.isEmpty()) {
+                            setLocalFolder(new File(folderPath));
+                        }
+                    }).dimensions(x + 10, folderBtnY + 55, 60, 20).build());
+                }).dimensions(x + 10, folderBtnY, 120, 20).build());
+                // Show current folder
+                if (localFolderPath != null) {
+                    addDrawableChild(ButtonWidget.builder(Text.literal("Folder: " + truncate(localFolderPath, 32)), b -> {}).dimensions(x + 140, folderBtnY, BOX_WIDTH - 150, 20).build());
+                }
+                // List songs
+                int songY = folderBtnY + 90;
+                int songBtnWidth = BOX_WIDTH - 20;
+                // Scroll up
+                if (localSongs.size() > visible) {
+                    addDrawableChild(ButtonWidget.builder(Text.literal("▲"), b -> { if (localScrollOffset > 0) { localScrollOffset--; refreshWidgets(); } })
+                        .dimensions(x + 10 + songBtnWidth + 5, songY, 22, 20).build());
+                }
+                for (int i = localScrollOffset; i < Math.min(localSongs.size(), localScrollOffset + visible); i++) {
+                    File song = localSongs.get(i);
+                    int rowY = songY + ((i - localScrollOffset) * 22);
+                    addDrawableChild(ButtonWidget.builder(Text.literal(truncate(song.getName(), 32)), b -> {
+                        String path = song.getAbsolutePath();
+                        SonicPulseConfig.get().addHistory("Local", song.getName(), path);
+                        SonicPulseClient.getEngine().stop();
+                        SonicPulseClient.getEngine().playTrack(path);
+                    }).dimensions(x + 10, rowY, songBtnWidth, 20).build());
+                }
+                // Scroll down
+                if (localSongs.size() > visible) {
+                    int downBtnY = songY + (visible - 1) * 22;
+                    addDrawableChild(ButtonWidget.builder(Text.literal("▼"), b -> { if (localScrollOffset < localSongs.size() - visible) { localScrollOffset++; refreshWidgets(); } })
+                        .dimensions(x + 10 + songBtnWidth + 5, downBtnY, 22, 20).build());
                 }
                 break;
         }
@@ -335,5 +387,18 @@ public class ConfigScreen extends Screen {
         int gi = Math.min(255, Math.max(0, (int)(g * 255f)));
         int bi = Math.min(255, Math.max(0, (int)(b * 255f)));
         return (alpha << 24) | (ri << 16) | (gi << 8) | bi;
+    }
+
+    // Helper: update localSongs when folder is chosen
+    public void setLocalFolder(File folder) {
+        localFolderPath = folder.getAbsolutePath();
+        localSongs.clear();
+        if (folder.exists() && folder.isDirectory()) {
+            File[] files = folder.listFiles((f, name) -> name.endsWith(".mp3") || name.endsWith(".wav") || name.endsWith(".flac") || name.endsWith(".ogg"));
+            if (files != null) {
+                for (File file : files) localSongs.add(file);
+            }
+        }
+        refreshWidgets();
     }
 }
