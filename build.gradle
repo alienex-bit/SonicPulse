@@ -32,6 +32,7 @@ fabricApi {
 repositories {
     maven { url = 'https://maven.lavalink.dev/releases' }
     maven { url = 'https://jitpack.io' }
+    maven { url = 'https://maven.terraformersmc.com/' }
 }
 
 dependencies {
@@ -57,6 +58,9 @@ dependencies {
     // Add Log4j dependency for logging
     implementation 'org.apache.logging.log4j:log4j-core:2.20.0'
     implementation 'org.apache.logging.log4j:log4j-api:2.20.0'
+
+    // ModMenu API for config screen integration (compileOnly, not bundled)
+    modCompileOnly "com.terraformersmc:modmenu:13.0.3"
 }
 
 processResources {

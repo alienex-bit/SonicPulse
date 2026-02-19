@@ -1,6 +1,7 @@
 # 🎵 SonicPulse Strategic Roadmap (Minecraft 1.21.4)
 
 ### Phase 1: Performance & Stability ⚙️
+* **ModMenu compatibility**: Ensure the mod is fully compatible with ModMenu, including config screen integration and metadata display.
 * **Idle Throttling**: Implement a "Sleep Mode" for the `AudioOutput` thread to halt FFT calculations when no music is playing or the HUD is hidden.
 * **Buffer Optimization**: Refine the `line.write` logic in `AudioOutput.java` to use dynamic buffer sizing, reducing the "Audio Error" logs.
 * **Resource Cleanup**: Add a shutdown hook to ensure the LavaPlayer manager and OpenAL threads are terminated when leaving a world to prevent memory leaks.
@@ -34,6 +35,7 @@
 * **Live Preview in HUD Workbench**: Integrate a live-preview mode in the HUD Workbench so users can see style changes in real time while positioning elements.
 * **Performance Guardrails**: Impose safe defaults and caps (e.g., no shader-based effects, limit effect duty-cycle) and add a "Low CPU Mode" that disables most visual effects.
 * **Documentation & Example Themes**: Ship a few example theme presets and document recommended combinations for visibility and performance.
+* **Favourite / History Configuration** (✅ Complete): Add options to customize how favourites and history are displayed in the HUD, including sorting, filtering, and quick-access controls. Allow users to pin favourite tracks and manage history visibility and retention settings.
 
 ---
 

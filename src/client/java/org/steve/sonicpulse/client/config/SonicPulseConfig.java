@@ -11,6 +11,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class SonicPulseConfig {
+        /**
+         * Returns a list of history entries marked as favourite.
+         */
+        public List<HistoryEntry> getFavoriteHistory() {
+            List<HistoryEntry> favs = new ArrayList<>();
+            for (HistoryEntry e : history) {
+                if (e.favorite) favs.add(e);
+            }
+            return favs;
+        }
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static File configFile;
     private static SonicPulseConfig INSTANCE;

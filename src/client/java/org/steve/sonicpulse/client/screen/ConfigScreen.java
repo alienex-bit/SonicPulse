@@ -17,6 +17,8 @@ public class ConfigScreen extends Screen {
     private TextFieldWidget urlField, radioUrlField, renameField;
     private final SonicPulseConfig config = SonicPulseConfig.get();
     private int currentTab = 0, colorIndex = 0, titleColorIndex = 0, renamingIndex = -1, radioScrollOffset = 0;
+    // Transient field for history filter toggle
+    private boolean showOnlyFavorites = false;
     private final List<String[]> radioStreams = new ArrayList<>();
     private static final String[] COLOR_NAMES = {"Green", "Cyan", "Magenta", "Yellow", "Orange", "Blue", "Red", "Coral", "DeepSkyBlue", "Violet", "Lime", "Salmon", "Turquoise", "Indigo", "Amber", "Mint", "Brown"};
     private static final int[] BAR_COLORS = {
@@ -113,13 +115,22 @@ public class ConfigScreen extends Screen {
                 addDrawableChild(ButtonWidget.builder(Text.literal("Bottom Right"), b -> config.setPos(-10, -10)).dimensions(x+140, y+85, 120, 20).build());
                 break;
             case 3:
-                List<SonicPulseConfig.HistoryEntry> hist = config.history; int sY = y + 55;
+                // Move filter toggle directly under the top tab buttons and align all elements left
+                int filterX = x + 5;
+                int filterY = y + 50;
+                addDrawableChild(ButtonWidget.builder(Text.literal(showOnlyFavorites ? "Show All" : "Show Only Favourites"), b -> {
+                    showOnlyFavorites = !showOnlyFavorites;
+                    refreshWidgets();
+                }).dimensions(filterX, filterY, 150, 20).build());
+                List<SonicPulseConfig.HistoryEntry> hist = showOnlyFavorites ? config.getFavoriteHistory() : config.history;
+                int sY = filterY + 30;
+                int leftX = x + 5;
                 for (int i = 0; i < Math.min(hist.size(), 7); i++) {
                     final int eIdx = i; SonicPulseConfig.HistoryEntry e = hist.get(eIdx);
                     if (renamingIndex == eIdx) {
                         // Enforce a 24-character rename limit
                         final int MAX_RENAME = 24;
-                        renameField = new TextFieldWidget(textRenderer, x + 10, sY + (i * 22), 170, 20, Text.literal("Rename"));
+                        renameField = new TextFieldWidget(textRenderer, leftX, sY + (i * 22), 170, 20, Text.literal("Rename"));
                         renameField.setText(e.label);
                         renameField.setMaxLength(MAX_RENAME);
                         addSelectableChild(renameField);
@@ -130,7 +141,7 @@ public class ConfigScreen extends Screen {
                             SonicPulseConfig.save();
                             renamingIndex = -1;
                             refreshWidgets();
-                        }).dimensions(x + 185, sY + (i * 22), 25, 20).build());
+                        }).dimensions(leftX + 175, sY + (i * 22), 25, 20).build());
                     } else {
                         // Display history labels truncated to 24 characters to match rename limit
                         addDrawableChild(ButtonWidget.builder(Text.literal(truncate(e.label, 24)), b -> {
@@ -138,10 +149,10 @@ public class ConfigScreen extends Screen {
                             config.setUrl(e.url);
                             SonicPulseClient.getEngine().stop();
                             SonicPulseClient.getEngine().playTrack(e.url);
-                        }).dimensions(x + 10, sY + (i * 22), 170, 20).build());
-                        addDrawableChild(ButtonWidget.builder(Text.literal(e.favorite ? "★" : "☆"), b -> { e.favorite = !e.favorite; refreshWidgets(); SonicPulseConfig.save(); }).dimensions(x + 185, sY + (i * 22), 25, 20).build());
-                        addDrawableChild(ButtonWidget.builder(Text.literal("X"), b -> { config.history.remove(e); SonicPulseConfig.save(); refreshWidgets(); }).dimensions(x + 212, sY + (i * 22), 25, 20).build());
-                        addDrawableChild(ButtonWidget.builder(Text.literal("R"), b -> { renamingIndex = eIdx; refreshWidgets(); }).dimensions(x + 239, sY + (i * 22), 25, 20).build());
+                        }).dimensions(leftX, sY + (i * 22), 170, 20).build());
+                        addDrawableChild(ButtonWidget.builder(Text.literal(e.favorite ? "★" : "☆"), b -> { e.favorite = !e.favorite; refreshWidgets(); SonicPulseConfig.save(); }).dimensions(leftX + 175, sY + (i * 22), 25, 20).build());
+                        addDrawableChild(ButtonWidget.builder(Text.literal("X"), b -> { config.history.remove(e); SonicPulseConfig.save(); refreshWidgets(); }).dimensions(leftX + 202, sY + (i * 22), 25, 20).build());
+                        addDrawableChild(ButtonWidget.builder(Text.literal("R"), b -> { renamingIndex = eIdx; refreshWidgets(); }).dimensions(leftX + 229, sY + (i * 22), 25, 20).build());
                     }
                 }
                 break;

@@ -3,9 +3,13 @@
   "id": "sonicpulse",
   "version": "1.3.4",
   "name": "SonicPulse",
-  "description": "",
-  "authors": [],
-  "contact": {},
+  "description": "Customizable music player with visualizer and audio engine for Minecraft.",
+  "authors": ["Steve Watkins"],
+  "contact": {
+    "homepage": "https://github.com/alienex-bit/SonicPulse",
+    "sources": "https://github.com/alienex-bit/SonicPulse",
+    "issues": "https://github.com/yourusername/SonicPulse/issues"
+  },
   "license": "MIT",
   "icon": "assets/sonicpulse/icon.png",
   "environment": "*",
@@ -15,6 +19,9 @@
     ],
     "main": [
       "org.steve.sonicpulse.SonicPulse"
+    ],
+    "modmenu": [
+      "org.steve.sonicpulse.client.modmenu.SonicPulseModMenu"
     ]
   },
   "mixins": [
