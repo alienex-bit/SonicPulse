@@ -12,10 +12,10 @@ public class AudioOutput {
     private SourceDataLine line;
     private boolean running = false;
     private Thread thread;
-    private final float[] amplitudes = new float[32];
+    private volatile float[] amplitudes = new float[32];
 
     public AudioOutput(AudioPlayer player) { this.player = player; }
-    public float[] getAmplitudes() { return amplitudes; }
+    public float[] getAmplitudes() { return amplitudes.clone(); }
     
     public void start() {
         if (running) return;

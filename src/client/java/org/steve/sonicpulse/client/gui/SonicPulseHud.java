@@ -10,14 +10,8 @@ import org.steve.sonicpulse.client.config.SonicPulseConfig;
 
 @SuppressWarnings("deprecation")
 public class SonicPulseHud implements HudRenderCallback {
-    // v1 callback
     @Override
     public void onHudRender(DrawContext context, RenderTickCounter tickCounter) {
-        render(context);
-    }
-
-    // v2-style method (not part of any compile-time interface) — used by reflective v2 registration
-    public void onHudRender(DrawContext context, float tickDelta) {
         render(context);
     }
 
