@@ -1,0 +1,43 @@
+# Gradle
+.gradle/
+/build/
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+out/
+
+# VSCode
+.vscode/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Minecraft specific
+run/
+run/*
+run/crash-reports/
+run/logs/
+run/debug.log
+run/latest.log
+run/telemetry/
+run/saves/
+run/screenshots/
+run/resourcepacks/
+run/resources/
+run/mods/
+run/data/
+run/config/

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "sonicpulse",
+  "version": "1.3.4",
+  "name": "SonicPulse",
+  "description": "",
+  "authors": [],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/sonicpulse/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "client": [
+      "org.steve.sonicpulse.client.SonicPulseClient"
+    ],
+    "main": [
+      "org.steve.sonicpulse.SonicPulse"
+    ]
+  },
+  "mixins": [
+    "sonicpulse.mixins.json",
+    {
+      "config": "sonicpulse.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}

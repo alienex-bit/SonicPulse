@@ -1,0 +1,159 @@
+import java.util.Properties
+
+plugins {
+    id 'fabric-loom' version '1.9-SNAPSHOT'
+    id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+loom {
+    splitEnvironmentSourceSets()
+
+    mods {
+        "sonicpulse" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+}
+
+fabricApi {
+    configureDataGeneration {
+        client = true
+    }
+}
+
+repositories {
+    maven { url = 'https://maven.lavalink.dev/releases' }
+    maven { url = 'https://jitpack.io' }
+}
+
+dependencies {
+    // To change the versions see the gradle.properties file
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    // Lavaplayer for audio processing
+    modImplementation "dev.arbjerg:lavaplayer:2.2.3"
+    include "dev.arbjerg:lavaplayer:2.2.3"
+
+    // YouTube source for LavaPlayer
+    modImplementation "dev.lavalink.youtube:v2:1.17.0"
+    include "dev.lavalink.youtube:v2:1.17.0"
+
+    // OpenAL for audio playback
+    implementation 'org.lwjgl:lwjgl-openal:3.3.1'
+    runtimeOnly 'org.lwjgl:lwjgl-openal:3.3.1:natives-windows'
+
+    // Add Log4j dependency for logging
+    implementation 'org.apache.logging.log4j:log4j-core:2.20.0'
+    implementation 'org.apache.logging.log4j:log4j-api:2.20.0'
+}
+
+processResources {
+    inputs.property "version", project.version
+    inputs.property "mod_version", project.mod_version
+    inputs.property "minecraft_version", project.minecraft_version
+    inputs.property "loader_version", project.loader_version
+    filteringCharset = "UTF-8"
+
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version,
+                "mod_version": project.mod_version,
+                "minecraft_version": project.minecraft_version,
+                "loader_version": project.loader_version
+    }
+}
+
+def targetJavaVersion = 21
+tasks.withType(JavaCompile).configureEach {
+    // ensure that the encoding is set to UTF-8, no matter what the system default is
+    // this fixes some edge cases with special characters not displaying correctly
+    // see http://yodaconditions.net/blog/fix-for-java-file-encoding-problems-with-gradle.html
+    // If Javadoc is generated, this must be specified in that task too.
+    it.options.encoding = "UTF-8"
+    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
+        it.options.release.set(targetJavaVersion)
+    }
+}
+
+java {
+    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
+    if (JavaVersion.current() < javaVersion) {
+        toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
+    }
+    // Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
+    // if it is present.
+    // If you remove this line, sources will not be generated.
+    withSourcesJar()
+}
+
+jar {
+    from("LICENSE") {
+        rename { "${it}_${project.archives_base_name}" }
+    }
+}
+
+// configure the maven publication
+publishing {
+    publications {
+        create("mavenJava", MavenPublication) {
+            artifactId = project.archives_base_name
+            from components.java
+        }
+    }
+
+    // See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
+    repositories {
+        // Add repositories to publish to here.
+        // Notice: This block does NOT have the same function as the block in the top level.
+        // The repositories here will be used for publishing your artifact, not for
+        // retrieving dependencies.
+    }
+}
+
+// Add a custom Gradle task to automate version bumping
+tasks.register("bumpVersion") {
+    doLast {
+        def props = new java.util.Properties()
+        file('gradle.properties').withInputStream {
+            props.load(it)
+        }
+        def version = props['mod_version']
+        def (major, minor, patch) = version.tokenize('.')
+        patch = (patch as int) + 1
+        props['mod_version'] = "${major}.${minor}.${patch}"
+        file('gradle.properties').withOutputStream {
+            props.store(it, null)
+        }
+        println "Version bumped to ${props['mod_version']}"
+    }
+}
+
+// Ensure the version is dynamically updated in fabric.mod.json
+processResources {
+    inputs.property "mod_version", project.version
+    filesMatching("fabric.mod.json") {
+        expand mod_version: project.version
+    }
+}
+
+// buildCache configuration removed from build.gradle because this block is only valid in settings.gradle
+// If you want a local build cache, add the following to settings.gradle instead:
+// buildCache {
+//     local {
+//         enabled = true
+//     }
+// }
+
+// dependencyVerification configuration removed from build.gradle because this block may not be supported in this project's Gradle context.
+// If you require dependency verification, configure it in a compatible Gradle settings or enable via Gradle's verification features.
