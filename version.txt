@@ -1,5 +1,0 @@
-v1.4.1 | 2026-02-18 17:16 | HUD now pulls Artist/Title from History custom names
-v1.4.0 | 2026-02-18 17:13 | Added SonicPulse branding and Two-Line Smart Layout for Artist/Title
-v1.3.5-WorkflowTest | 2026-02-18 17:06 | Testing the new Backup-On-Exit strategy
-v1.3.4-BackupCheck | 2026-02-18 17:02 | Verifying backup system integrity with existing code
-v1.3.4 | 2026-02-18 17:01 | Initialized backup system and fixed audio endianness
