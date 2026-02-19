@@ -33,9 +33,8 @@ public class SonicPulseClient implements ClientModInitializer {
         engine = new SonicPulseEngine();
         setupAssetDirectory();
 
-        HudRenderCallback.EVENT.register((drawContext, tickDelta) -> {
-            // Rendering logic here
-        });
+        // Register the proper HUD renderer
+        net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register(new org.steve.sonicpulse.client.gui.SonicPulseHud());
 
         configKeyBinding = KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key.sonicpulse.config",

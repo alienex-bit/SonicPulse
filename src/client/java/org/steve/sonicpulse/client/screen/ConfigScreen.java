@@ -16,7 +16,7 @@ public class ConfigScreen extends Screen {
     private static final int BOX_WIDTH = 270, BOX_HEIGHT = 245;
     private TextFieldWidget urlField, radioUrlField, renameField;
     private final SonicPulseConfig config = SonicPulseConfig.get();
-    private int currentTab = 0, colorIndex = 0, titleColorIndex = 0, renamingIndex = -1, radioScrollOffset = 0;
+    private int currentTab = 0, colorIndex = 0, titleColorIndex = 0, renamingIndex = -1, radioScrollOffset = 0, historyScrollOffset = 0;
     // Transient field for history filter toggle
     private boolean showOnlyFavorites = false;
     private final List<String[]> radioStreams = new ArrayList<>();
@@ -125,12 +125,25 @@ public class ConfigScreen extends Screen {
                 List<SonicPulseConfig.HistoryEntry> hist = showOnlyFavorites ? config.getFavoriteHistory() : config.history;
                 int sY = filterY + 30;
                 int leftX = x + 5;
-                for (int i = 0; i < Math.min(hist.size(), 7); i++) {
+                int visible = 7;
+                int total = hist.size();
+                // Clamp scroll offset
+                if (historyScrollOffset > Math.max(0, total - visible)) historyScrollOffset = Math.max(0, total - visible);
+                if (historyScrollOffset < 0) historyScrollOffset = 0;
+                int entryButtonWidth = 140; // Reduce width to make space for scroll buttons
+                int iconButtonWidth = 22;
+                int scrollButtonX = leftX + entryButtonWidth + iconButtonWidth * 3 + 10; // Place scroll buttons to the right
+                // Add scroll up button if needed
+                if (total > visible) {
+                    addDrawableChild(ButtonWidget.builder(Text.literal("▲"), b -> { if (historyScrollOffset > 0) { historyScrollOffset--; refreshWidgets(); } })
+                        .dimensions(scrollButtonX, sY, 22, 20).build());
+                }
+                for (int i = historyScrollOffset; i < Math.min(total, historyScrollOffset + visible); i++) {
                     final int eIdx = i; SonicPulseConfig.HistoryEntry e = hist.get(eIdx);
+                    int rowY = sY + ((i - historyScrollOffset) * 22);
                     if (renamingIndex == eIdx) {
-                        // Enforce a 24-character rename limit
                         final int MAX_RENAME = 24;
-                        renameField = new TextFieldWidget(textRenderer, leftX, sY + (i * 22), 170, 20, Text.literal("Rename"));
+                        renameField = new TextFieldWidget(textRenderer, leftX, rowY, entryButtonWidth, 20, Text.literal("Rename"));
                         renameField.setText(e.label);
                         renameField.setMaxLength(MAX_RENAME);
                         addSelectableChild(renameField);
@@ -141,19 +154,24 @@ public class ConfigScreen extends Screen {
                             SonicPulseConfig.save();
                             renamingIndex = -1;
                             refreshWidgets();
-                        }).dimensions(leftX + 175, sY + (i * 22), 25, 20).build());
+                        }).dimensions(leftX + entryButtonWidth, rowY, iconButtonWidth, 20).build());
                     } else {
-                        // Display history labels truncated to 24 characters to match rename limit
                         addDrawableChild(ButtonWidget.builder(Text.literal(truncate(e.label, 24)), b -> {
-                            config.currentTitle = e.label; // FORCE TITLE
+                            config.currentTitle = e.label;
                             config.setUrl(e.url);
                             SonicPulseClient.getEngine().stop();
                             SonicPulseClient.getEngine().playTrack(e.url);
-                        }).dimensions(leftX, sY + (i * 22), 170, 20).build());
-                        addDrawableChild(ButtonWidget.builder(Text.literal(e.favorite ? "★" : "☆"), b -> { e.favorite = !e.favorite; refreshWidgets(); SonicPulseConfig.save(); }).dimensions(leftX + 175, sY + (i * 22), 25, 20).build());
-                        addDrawableChild(ButtonWidget.builder(Text.literal("X"), b -> { config.history.remove(e); SonicPulseConfig.save(); refreshWidgets(); }).dimensions(leftX + 202, sY + (i * 22), 25, 20).build());
-                        addDrawableChild(ButtonWidget.builder(Text.literal("R"), b -> { renamingIndex = eIdx; refreshWidgets(); }).dimensions(leftX + 229, sY + (i * 22), 25, 20).build());
+                        }).dimensions(leftX, rowY, entryButtonWidth, 20).build());
+                        addDrawableChild(ButtonWidget.builder(Text.literal(e.favorite ? "★" : "☆"), b -> { e.favorite = !e.favorite; refreshWidgets(); SonicPulseConfig.save(); }).dimensions(leftX + entryButtonWidth, rowY, iconButtonWidth, 20).build());
+                        addDrawableChild(ButtonWidget.builder(Text.literal("X"), b -> { config.history.remove(e); SonicPulseConfig.save(); refreshWidgets(); }).dimensions(leftX + entryButtonWidth + iconButtonWidth, rowY, iconButtonWidth, 20).build());
+                        addDrawableChild(ButtonWidget.builder(Text.literal("R"), b -> { renamingIndex = eIdx; refreshWidgets(); }).dimensions(leftX + entryButtonWidth + iconButtonWidth * 2, rowY, iconButtonWidth, 20).build());
                     }
+                }
+                // Add scroll down button if needed
+                if (total > visible) {
+                    int downBtnY = sY + (visible - 1) * 22;
+                    addDrawableChild(ButtonWidget.builder(Text.literal("▼"), b -> { if (historyScrollOffset < total - visible) { historyScrollOffset++; refreshWidgets(); } })
+                        .dimensions(scrollButtonX, downBtnY, 22, 20).build());
                 }
                 break;
             case 4:
