@@ -16,7 +16,7 @@ public class SonicPulseConfig {
     private static SonicPulseConfig INSTANCE;
 
     public enum VisualizerStyle { SOLID, SEGMENTED, MIRRORED, WAVEFORM, PEAK_DOTS }
-    public enum ColorMode { SOLID, HORIZONTAL, VERTICAL, RAINBOW, HEATMAP, VAPORWAVE, MATRIX }
+    public enum ColorMode { SOLID, HORIZONTAL, VERTICAL, RAINBOW, HEATMAP, VAPORWAVE, MATRIX, PULSING_DUAL, NEON_OUTLINE }
 
     public int hudX = 10, hudY = 10, barColor = 0xFF00FF00, volume = 100;
     // Title color is configurable independently from the visualizer bar color

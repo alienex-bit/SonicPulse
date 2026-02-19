@@ -11,6 +11,15 @@ import org.steve.sonicpulse.client.config.SonicPulseConfig;
 public class HudOverlay implements HudRenderCallback {
     @Override
     public void onHudRender(DrawContext drawContext, RenderTickCounter tickCounter) {
+        render(drawContext);
+    }
+
+    // v2-style method for reflective invocation
+    public void onHudRender(DrawContext drawContext, float tickDelta) {
+        render(drawContext);
+    }
+
+    private void render(DrawContext drawContext) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null) return;
 

@@ -84,6 +84,8 @@ tasks.withType(JavaCompile).configureEach {
     if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
         it.options.release.set(targetJavaVersion)
     }
+    // show deprecation details during compilation
+    it.options.compilerArgs << '-Xlint:deprecation'
 }
 
 java {

@@ -18,8 +18,26 @@ public class ConfigScreen extends Screen {
     private final SonicPulseConfig config = SonicPulseConfig.get();
     private int currentTab = 0, colorIndex = 0, titleColorIndex = 0, renamingIndex = -1, radioScrollOffset = 0;
     private final List<String[]> radioStreams = new ArrayList<>();
-    private static final String[] COLOR_NAMES = {"Green", "Cyan", "Magenta", "Yellow", "Orange", "Blue", "Red", "White"};
-    private static final int[] BAR_COLORS = {0xFF00FF00, 0xFF00FFFF, 0xFFFF00FF, 0xFFFFFF00, 0xFFFF5500, 0xFF0000FF, 0xFFFF0000, 0xFFFFFFFF};
+    private static final String[] COLOR_NAMES = {"Green", "Cyan", "Magenta", "Yellow", "Orange", "Blue", "Red", "Coral", "DeepSkyBlue", "Violet", "Lime", "Salmon", "Turquoise", "Indigo", "Amber", "Mint", "Brown"};
+    private static final int[] BAR_COLORS = {
+        0xFF00FF00, // Green
+        0xFF00FFFF, // Cyan
+        0xFFFF00FF, // Magenta
+        0xFFFFFF00, // Yellow
+        0xFFFF5500, // Orange
+        0xFF0000FF, // Blue
+        0xFFFF0000, // Red
+        0xFFFF7F50, // Coral
+        0xFF00BFFF, // DeepSkyBlue
+        0xFF8A2BE2, // Violet
+        0xFF32CD32, // Lime
+        0xFFFA8072, // Salmon
+        0xFF40E0D0, // Turquoise
+        0xFF4B0082, // Indigo
+        0xFFFFBF00, // Amber
+        0xFF98FF98, // Mint
+        0xFFA52A2A  // Brown
+    };
     public ConfigScreen() { super(Text.literal("SonicPulse Config")); for(int i=0; i<BAR_COLORS.length; i++) { if(BAR_COLORS[i]==config.barColor) colorIndex=i; if(BAR_COLORS[i]==config.titleColor) titleColorIndex=i; } }
 
     @Override protected void init() { refreshWidgets(); }
@@ -70,14 +88,23 @@ public class ConfigScreen extends Screen {
                 addDrawableChild(ButtonWidget.builder(Text.literal("HUD Theme: " + config.skin.getName()), b -> { config.nextSkin(); refreshWidgets(); }).tooltip(Tooltip.of(Text.literal("Change the HUD theme"))) .dimensions(x + 10, y + 60, BOX_WIDTH - 20, 20).build());
                 // Visualiser Type (renamed from Bar Style)
                 addDrawableChild(ButtonWidget.builder(Text.literal("Visualiser Type: " + config.visStyle.name()), b -> { config.nextVisStyle(); refreshWidgets(); }).tooltip(Tooltip.of(Text.literal("Cycle visualiser type"))) .dimensions(x + 10, y + 85, BOX_WIDTH - 20, 20).build());
-                // Visualiser Colour (renamed and corrected spelling) - full width like other buttons
-                ButtonWidget cBtn = ButtonWidget.builder(Text.literal("Visualiser Colour: " + COLOR_NAMES[colorIndex]), b -> { colorIndex = (colorIndex+1)%BAR_COLORS.length; config.setColor(BAR_COLORS[colorIndex]); refreshWidgets(); }).tooltip(Tooltip.of(Text.literal("Change the visualiser bar colour"))) .dimensions(x + 10, y + 110, BOX_WIDTH - 20, 20).build();
-                addDrawableChild(cBtn);
-                // Title Colour button (independent from bar colour) - full width
-                ButtonWidget tBtn = ButtonWidget.builder(Text.literal("Title Colour: " + COLOR_NAMES[titleColorIndex]), b -> { titleColorIndex = (titleColorIndex+1)%BAR_COLORS.length; config.setTitleColor(BAR_COLORS[titleColorIndex]); refreshWidgets(); }).tooltip(Tooltip.of(Text.literal("Change the HUD title colour"))) .dimensions(x + 10, y + 135, BOX_WIDTH - 20, 20).build();
+                // Visualiser Colour (left) and live preview (right). Keep colour button 150px so preview fits.
+                if (config.visStyle == SonicPulseConfig.VisualizerStyle.SOLID) {
+                    ButtonWidget cBtn = ButtonWidget.builder(Text.literal("Visualiser Colour: " + COLOR_NAMES[colorIndex]), b -> { colorIndex = (colorIndex+1)%BAR_COLORS.length; config.setColor(BAR_COLORS[colorIndex]); refreshWidgets(); }).tooltip(Tooltip.of(Text.literal("Change the visualiser bar colour"))) .dimensions(x + 10, y + 110, 150, 20).build();
+                    addDrawableChild(cBtn);
+                } else {
+                    ButtonWidget cBtn = ButtonWidget.builder(Text.literal("Visualiser Colour: " + COLOR_NAMES[colorIndex]), b -> { }).tooltip(Tooltip.of(Text.literal("Available only for SOLID visualiser"))).dimensions(x + 10, y + 110, 150, 20).build();
+                    cBtn.active = false;
+                    addDrawableChild(cBtn);
+                }
+                // Title Colour button (independent from bar colour) - left 150px
+                ButtonWidget tBtn = ButtonWidget.builder(Text.literal("Title Colour: " + COLOR_NAMES[titleColorIndex]), b -> { titleColorIndex = (titleColorIndex+1)%BAR_COLORS.length; config.setTitleColor(BAR_COLORS[titleColorIndex]); refreshWidgets(); }).tooltip(Tooltip.of(Text.literal("Change the HUD title colour"))) .dimensions(x + 10, y + 135, 150, 20).build();
                 addDrawableChild(tBtn);
-                // Move scale slider down to make space for title color
-                addDrawableChild(new SliderWidget(x + 10, y + 160, BOX_WIDTH - 20, 20, Text.literal("Scale: " + (int)(config.hudScale * 100) + "%"), (config.hudScale - 0.5) / 0.7) { @Override protected void updateMessage() { setMessage(Text.literal("Scale: " + (int)(config.hudScale * 100) + "%")); } @Override protected void applyValue() { config.setScale((float)(0.5 + value * 0.7)); } });
+                // Colour Mode (Solid / Rainbow / others) - left 150px
+                ButtonWidget cmBtn = ButtonWidget.builder(Text.literal("Colour Mode: " + config.colorMode.name()), b -> { config.nextColorMode(); refreshWidgets(); }).tooltip(Tooltip.of(Text.literal("Cycle visualiser color mode (Solid, Rainbow, etc.)"))) .dimensions(x + 10, y + 160, 150, 20).build();
+                addDrawableChild(cmBtn);
+                // Move scale slider down to make space for preview area
+                addDrawableChild(new SliderWidget(x + 10, y + 210, BOX_WIDTH - 20, 20, Text.literal("Scale: " + (int)(config.hudScale * 100) + "%"), (config.hudScale - 0.5) / 0.7) { @Override protected void updateMessage() { setMessage(Text.literal("Scale: " + (int)(config.hudScale * 100) + "%")); } @Override protected void applyValue() { config.setScale((float)(0.5 + value * 0.7)); } });
                 break;
             case 2:
                 addDrawableChild(ButtonWidget.builder(Text.literal("Top Left"), b -> config.setPos(10, 10)).dimensions(x+10, y+60, 120, 20).build());
@@ -163,7 +190,121 @@ public class ConfigScreen extends Screen {
         context.drawBorder(x, y, BOX_WIDTH, BOX_HEIGHT, config.skin.getBorderColor());
         context.drawTextWithShadow(textRenderer, Text.literal("SONICPULSE CONFIG"), x + (BOX_WIDTH - textRenderer.getWidth("SONICPULSE CONFIG")) / 2, y + 8, 0xFF55FF);
         super.render(context, mx, my, d);
-        if (currentTab == 0 && urlField != null) urlField.render(context, mx, my, d); if (currentTab == 3 && renameField != null && renamingIndex != -1) renameField.render(context, mx, my, d); if (currentTab == 4 && radioUrlField != null) radioUrlField.render(context, mx, my, d);
+        // Render fields
+        if (currentTab == 0 && urlField != null) urlField.render(context, mx, my, d);
+        if (currentTab == 3 && renameField != null && renamingIndex != -1) renameField.render(context, mx, my, d);
+        if (currentTab == 4 && radioUrlField != null) radioUrlField.render(context, mx, my, d);
+
+        // Small animated preview on VISUALS tab (right side) to show selected colour & basic animation
+        if (currentTab == 1) {
+            int px = x + 10 + 150 + 8; // preview x (to the right of the 150px buttons)
+            int py = y + 110;
+            int pW = BOX_WIDTH - (150 + 8) - 20; int pH = 24;
+            context.fill(px - 1, py - 1, px + pW + 1, py + pH + 1, 0xFF000000);
+            context.fill(px, py, px + pW, py + pH, 0xFF111111);
+            // animate 8 mini-bars
+            int previewBars = 8;
+            int bw = Math.max(2, pW / previewBars);
+            long now = System.currentTimeMillis();
+            for (int i = 0; i < previewBars; i++) {
+                double ph = (now / 200.0 + i * 0.6);
+                float amp = (float)((Math.sin(ph) * 0.5) + 0.5);
+                int bh = Math.max(1, (int)(amp * (pH - 4)));
+                int bx = px + i * bw;
+                int by = py + pH - bh - 2;
+                int col = 0;
+                switch (config.colorMode) {
+                    case RAINBOW: {
+                        float hue = (i / (float)previewBars + (now % 2000L) / 2000f) % 1f;
+                        col = hsvToRgbLocal(hue, 0.95f, 1.0f);
+                        break;
+                    }
+                    case MATRIX: {
+                        int g = 40 + (int)(amp * 200);
+                        g = Math.max(0, Math.min(255, g));
+                        col = (0x99 << 24) | (g << 8);
+                        break;
+                    }
+                    case HEATMAP: {
+                        float hue = (1f - amp) * 0.66f;
+                        col = hsvToRgbLocal(hue, 1f, 1f);
+                        break;
+                    }
+                    case VAPORWAVE: {
+                        float hue = (0.6f + i / (float)previewBars * 0.2f + (now % 6000L) / 6000f * 0.05f) % 1f;
+                        col = hsvToRgbLocal(hue, 0.55f, 0.95f);
+                        break;
+                    }
+                    case HORIZONTAL: {
+                        int cfgBase = BAR_COLORS[colorIndex] & 0x00FFFFFF;
+                        int topRaw = blendWithWhiteLocal(cfgBase | 0xFF000000, 0.3f + (i / (float)Math.max(1, previewBars - 1)) * 0.4f) & 0x00FFFFFF;
+                        col = (0x99 << 24) | topRaw;
+                        break;
+                    }
+                    case PULSING_DUAL: {
+                        int cfg = BAR_COLORS[colorIndex] & 0x00FFFFFF;
+                        float p = Math.min(1f, 0.25f + amp * 0.9f);
+                        int accent = blendWithWhiteLocal(0xFF000000 | cfg, p) & 0x00FFFFFF;
+                        col = (0x99 << 24) | accent;
+                        break;
+                    }
+                    case NEON_OUTLINE: {
+                        int cfg = BAR_COLORS[colorIndex] & 0x00FFFFFF;
+                        int neon = blendWithWhiteLocal(0xFF000000 | cfg, 0.6f) & 0x00FFFFFF;
+                        col = (0x99 << 24) | neon;
+                        break;
+                    }
+                    case SOLID:
+                    default: {
+                        int baseCol = BAR_COLORS[colorIndex];
+                        col = ((baseCol & 0x00FFFFFF) | (0x88 << 24)); // reduced alpha for preview (~53%)
+                        break;
+                    }
+                }
+                // single fill per bar (col guaranteed to be set by the switch)
+                context.fill(bx, by, bx + bw - 1, by + bh, col);
+            }
+            // local helpers for preview
+
+
+         }
+     }
+
+    private static int blendWithWhiteLocal(int color, float t) {
+        int r = (color >> 16) & 0xFF;
+        int g = (color >> 8) & 0xFF;
+        int b = color & 0xFF;
+        int nr = Math.min(255, (int)(r + (255 - r) * t));
+        int ng = Math.min(255, (int)(g + (255 - g) * t));
+        int nb = Math.min(255, (int)(b + (255 - b) * t));
+        return (0xFF << 24) | (nr << 16) | (ng << 8) | nb;
     }
-    @Override public boolean mouseClicked(double mx, double my, int b) { if (currentTab == 0 && urlField != null && urlField.isMouseOver(mx, my) && !urlField.isFocused()) urlField.setText(""); if (currentTab == 4 && radioUrlField != null && radioUrlField.isMouseOver(mx, my) && !radioUrlField.isFocused()) radioUrlField.setText(""); return super.mouseClicked(mx, my, b); }
+
+    private static int hsvToRgbLocal(float h, float s, float v) {
+        // preview alpha 0x99
+        int alpha = 0x99;
+        float r,g,b;
+        if (s==0f) {
+            r = g = b = v;
+        } else {
+            float hf = h*6f;
+            int i = (int)Math.floor(hf);
+            float f = hf - i;
+            float p = v * (1f - s);
+            float q = v * (1f - s * f);
+            float t = v * (1f - s * (1f - f));
+            switch (i % 6) {
+                case 0: r = v; g = t; b = p; break;
+                case 1: r = q; g = v; b = p; break;
+                case 2: r = p; g = v; b = t; break;
+                case 3: r = p; g = q; b = v; break;
+                case 4: r = t; g = p; b = v; break;
+                default: r = v; g = p; b = q; break;
+            }
+        }
+        int ri = Math.min(255, Math.max(0, (int)(r * 255f)));
+        int gi = Math.min(255, Math.max(0, (int)(g * 255f)));
+        int bi = Math.min(255, Math.max(0, (int)(b * 255f)));
+        return (alpha << 24) | (ri << 16) | (gi << 8) | bi;
+    }
 }
