@@ -181,14 +181,15 @@ public class ConfigScreen extends Screen {
         context.drawBorder(x, y, BOX_WIDTH, BOX_HEIGHT, config.skin.getBorderColor());
         context.fill(x + SIDEBAR_WIDTH, y + 20, x + SIDEBAR_WIDTH + 1, y + BOX_HEIGHT - 5, 0x44FFFFFF);
         int contentX = x + SIDEBAR_WIDTH + 10, contentW = BOX_WIDTH - SIDEBAR_WIDTH - 20;
-        
-        // This super call draws the dark background overlay!
         super.render(context, mx, my, d);
         
         boolean playing = SonicPulseClient.getEngine().getPlayer().getPlayingTrack() != null;
         boolean paused = SonicPulseClient.getEngine().getPlayer().isPaused();
 
         if (currentTab == 0) {
+            // BUG FIX: Title added here directly above the URL box!
+            context.drawText(textRenderer, Text.literal("Enter audio URL to stream:"), contentX, y + 23, 0xFFFFFFFF, false);
+            
             int bW = 60, bGrpW = (bW * 3) + 10, gX = contentX + (contentW - bGrpW) / 2;
             if (playing && !paused) context.fill(gX, y + 65, gX + bW, y + 85, 0x6600FF00); 
             if (playing && paused) context.fill(gX + 65, y + 65, gX + 65 + bW, y + 85, 0x66FF8C00); 
@@ -213,8 +214,6 @@ public class ConfigScreen extends Screen {
         if (currentTab == 0 && urlField != null) urlField.render(context, mx, my, d);
         if (currentTab == 3 && renameField != null && renamingIndex != -1) renameField.render(context, mx, my, d);
         
-        // --- FOREGROUND INJECTION ---
-        // Calling this directly here draws the HUD on top of everything!
         hudRenderer.render(context, true, 0, 0);
     }
 }

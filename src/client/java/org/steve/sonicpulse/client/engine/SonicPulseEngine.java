@@ -15,11 +15,15 @@ public class SonicPulseEngine {
     public SonicPulseEngine() {
         manager.getConfiguration().setOutputFormat(StandardAudioDataFormats.COMMON_PCM_S16_LE);
         
-        // Register the new robust YouTube source
+        // Register the robust YouTube source
         YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager();
         manager.registerSourceManager(youtube);
         
         AudioSourceManagers.registerRemoteSources(manager);
+        
+        // BUG FIX: Explicitly register Local Sources so the engine can play local mp3/wav files!
+        AudioSourceManagers.registerLocalSource(manager);
+        
         player = manager.createPlayer();
         output = new AudioOutput(player);
     }

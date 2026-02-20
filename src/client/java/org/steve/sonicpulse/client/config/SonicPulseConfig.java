@@ -28,7 +28,6 @@ public class SonicPulseConfig {
 
     public enum VisualizerStyle { SOLID, FLOATING_PEAKS }
 
-    // NEW: The 6 possible Ribbon permutations
     public enum RibbonLayout {
         LOG_TRK_BAR("Logo | Track | Bars"),
         LOG_BAR_TRK("Logo | Bars | Track"),
@@ -55,7 +54,6 @@ public class SonicPulseConfig {
     public List<HistoryEntry> history = new ArrayList<>();
     public boolean hudVisible = true;
     
-    // Horizontal Element Toggles
     public boolean showLogo = true;
     public boolean showTrack = true;
     public boolean showBars = true;
@@ -79,8 +77,20 @@ public class SonicPulseConfig {
     }
 
     public void addHistory(String type, String label, String url) {
+        // BUG FIX: Remember if it was already a favorite before we recreate the entry!
+        boolean wasFav = false;
+        for (HistoryEntry e : history) {
+            if (e.url.equals(url)) {
+                wasFav = e.favorite;
+                break;
+            }
+        }
+        
         history.removeIf(e -> e.url.equals(url));
-        history.add(0, new HistoryEntry(type, label, url));
+        HistoryEntry newEntry = new HistoryEntry(type, label, url);
+        newEntry.favorite = wasFav; // Re-apply the star if it had one
+        
+        history.add(0, newEntry);
         if (history.size() > 50) history.remove(history.size() - 1);
         save();
     }
