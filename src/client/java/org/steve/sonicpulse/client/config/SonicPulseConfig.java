@@ -40,6 +40,7 @@ public class SonicPulseConfig {
     public String currentTitle = null;
     public String lastRadioUrl = "";
     public List<HistoryEntry> history = new ArrayList<>();
+    public boolean hudVisible = true; // New Master Toggle
 
     public static class HistoryEntry {
         public String type, label, url;
