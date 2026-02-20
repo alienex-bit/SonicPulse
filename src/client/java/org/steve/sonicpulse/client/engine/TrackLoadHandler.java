@@ -24,14 +24,18 @@ public class TrackLoadHandler implements AudioLoadResultHandler {
         String title = track.getInfo().title;
         String author = track.getInfo().author;
         
-        // Only update history if we have real data that isn't "Unknown"
-        if (title != null && !title.toLowerCase().contains("unknown") && !title.equalsIgnoreCase("stream")) {
-            String label = title;
-            if (author != null && !author.equalsIgnoreCase("unknown")) {
-                label = author + " - " + title;
+        String displayTitle = "YouTube Track";
+        if (title != null && !title.equalsIgnoreCase("stream") && !title.toLowerCase().contains("unknown")) {
+            // Use | as a separator so the HUD can split Artist and Song into two lines
+            if (author != null && !author.equalsIgnoreCase("unknown") && !author.isEmpty()) {
+                displayTitle = author + "|" + title;
+            } else {
+                displayTitle = title;
             }
-            SonicPulseConfig.get().addHistory("Track", label, track.getInfo().uri);
         }
+        
+        SonicPulseConfig.get().currentTitle = displayTitle;
+        SonicPulseConfig.get().addHistory("Track", displayTitle.replace("|", " - "), track.getInfo().uri);
     }
 
     @Override
@@ -42,7 +46,8 @@ public class TrackLoadHandler implements AudioLoadResultHandler {
             player.playTrack(firstTrack);
             
             String title = firstTrack.getInfo().title;
-            if (title != null && !title.toLowerCase().contains("unknown")) {
+            if (title != null && !title.equalsIgnoreCase("stream")) {
+                SonicPulseConfig.get().currentTitle = title;
                 SonicPulseConfig.get().addHistory("Playlist", title, firstTrack.getInfo().uri);
             }
         }

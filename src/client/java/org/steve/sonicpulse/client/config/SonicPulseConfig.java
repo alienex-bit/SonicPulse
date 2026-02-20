@@ -26,21 +26,32 @@ public class SonicPulseConfig {
         public String getName() { return name; }
     }
 
-    public enum ColorMode { SOLID, RAINBOW, MATRIX, HEATMAP, VAPORWAVE, HORIZONTAL, PULSING_DUAL, NEON_OUTLINE }
-    public enum VisualizerStyle { SOLID, SEGMENTED, MIRRORED, WAVEFORM, PEAK_DOTS }
+    // Simplified to only include SOLID style as requested
+    public enum VisualizerStyle { SOLID }
 
     public int hudX = 10, hudY = 10;
-    public float hudScale = 1.0f;
-    public int barColor = 0xFF00FF00;
-    public int titleColor = 0xFFFF55FF;
+    public int barColor = 0xFF00BFFF; 
+    public int titleColor = 0xFFFF00FF;
     public int volume = 50;
     public Skin skin = Skin.DEFAULT;
-    public ColorMode colorMode = ColorMode.SOLID;
     public VisualizerStyle visStyle = VisualizerStyle.SOLID;
     public String currentTitle = null;
     public String lastRadioUrl = "";
+    public String localMusicPath = "";
     public List<HistoryEntry> history = new ArrayList<>();
-    public boolean hudVisible = true; // New Master Toggle
+    public boolean hudVisible = true;
+
+    public static final int[] PALETTE = {
+        0x00BFFF, 0x00CED1, 0x00FFC6, 0x32CD32, 0x7FFF00, 0xFFD300, 
+        0xFFBF00, 0xFF8C00, 0xFF5F00, 0xFF2400, 0xDC143C, 0xFF1493, 
+        0xFF00FF, 0x8A2BE2, 0x6A0DAD, 0x4B0082, 0x008B8B, 0x4682B4, 0xB0FF00
+    };
+    
+    public static final String[] COLOR_NAMES = {
+        "Electric Blue", "Deep Sky Cyan", "Neon Aqua", "Lime Green", "Chartreuse", "Vivid Yellow",
+        "Amber", "Orange", "Neon Orange", "Signal Red", "Crimson", "Hot Pink",
+        "Magenta", "Violet", "Deep Purple", "Indigo", "Cyber Teal", "Steel Blue", "Acid Green"
+    };
 
     public static class HistoryEntry {
         public String type, label, url;
@@ -69,13 +80,8 @@ public class SonicPulseConfig {
         save();
     }
 
-    public void nextColorMode() {
-        ColorMode[] m = ColorMode.values();
-        colorMode = m[(colorMode.ordinal() + 1) % m.length];
-        save();
-    }
-
     public void nextVisStyle() {
+        // Since only SOLID exists, this will keep it on SOLID
         VisualizerStyle[] v = VisualizerStyle.values();
         visStyle = v[(visStyle.ordinal() + 1) % v.length];
         save();
