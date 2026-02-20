@@ -31,14 +31,15 @@ public class SonicPulseHud implements HudRenderCallback {
         int y = config.hudY >= 0 ? config.hudY : height + config.hudY - (int)(hudH * config.hudScale);
 
         context.getMatrices().push();
-        context.getMatrices().translate(x, y, 0);
+        context.getMatrices().translate((int)x, (int)y, 0);
         context.getMatrices().scale(config.hudScale, config.hudScale, 1.0f);
 
         // 1. Background
         context.fill(0, 0, hudW, hudH, config.skin.getBgColor());
         context.drawBorder(0, 0, hudW, hudH, config.skin.getBorderColor());
+        context.drawText(client.textRenderer, "♫", hudW - 12, 5, config.titleColor, false); 
 
-        // 2. Visualizer Data
+        // 2. Visualizer Logic
         float[] v = SonicPulseClient.getEngine().getVisualizerData();
         final int TARGET_BARS = 16;
         float[] aggr = new float[TARGET_BARS];
@@ -48,12 +49,12 @@ public class SonicPulseHud implements HudRenderCallback {
 
         int barW = (hudW - 10) / TARGET_BARS;
         int barBottomY = hudH - 6;
-        int maxH = hudH - 32; // Limit height so it doesn't hit the title text
+        int maxH = hudH - 32;
         float phase = (System.currentTimeMillis() % 2000L) / 2000f;
 
         for (int i = 0; i < TARGET_BARS; i++) {
             float norm = Math.max(0.02f, aggr[i]);
-            int col = computeBarColors(config, i, TARGET_BARS, norm, phase)[1];
+            int col = computeBarColors(config, i, TARGET_BARS, norm, phase);
             int bh = (int)(norm * maxH);
             int bx = 5 + i * barW;
             int bw = barW - 2;
@@ -76,11 +77,11 @@ public class SonicPulseHud implements HudRenderCallback {
                 case WAVEFORM:
                     int waveMid = barBottomY - (maxH / 2);
                     context.fill(bx, waveMid - bh, bx + bw, waveMid + bh, col);
-                    context.fill(bx, waveMid, bx + bw, waveMid + 1, 0x88FFFFFF); // Center line
+                    context.fill(bx, waveMid, bx + bw, waveMid + 1, 0x88FFFFFF);
                     break;
                 case PEAK_DOTS:
-                    context.fill(bx, barBottomY - bh - 2, bx + bw, barBottomY - bh, col); // The Dot
-                    context.fill(bx, barBottomY - bh, bx + bw, barBottomY, (col & 0x00FFFFFF) | (0x33 << 24)); // Ghost bar
+                    context.fill(bx, barBottomY - bh - 2, bx + bw, barBottomY - bh, col);
+                    context.fill(bx, barBottomY - bh, bx + bw, barBottomY, (col & 0x00FFFFFF) | (0x33 << 24));
                     break;
                 case SOLID:
                 default:
@@ -89,29 +90,29 @@ public class SonicPulseHud implements HudRenderCallback {
             }
         }
 
-        // 3. Text
-        context.drawText(client.textRenderer, "SONICPULSE", 5, 5, config.titleColor, true);
-        String title = (config.currentTitle != null) ? config.currentTitle : track.getInfo().title;
-        context.drawText(client.textRenderer, client.textRenderer.trimToWidth(title, hudW - 10), 5, 18, 0xFFFFFFFF, true);
+        context.drawText(client.textRenderer, "SONICPULSE", 5, 5, config.titleColor, false);
+        String titleStr = (config.currentTitle != null) ? config.currentTitle : track.getInfo().title;
+        context.drawText(client.textRenderer, client.textRenderer.trimToWidth(titleStr, hudW - 20), 5, 18, 0xFFFFFFFF, false);
 
         context.getMatrices().pop();
     }
 
-    private static int[] computeBarColors(SonicPulseConfig config, int index, int bars, float norm, float phase) {
-        int cfg = config.barColor & 0x00FFFFFF;
-        int alpha = 0xBB;
+    private static int computeBarColors(SonicPulseConfig config, int index, int bars, float norm, float phase) {
+        int alpha = 0xBB << 24;
         switch (config.colorMode) {
             case RAINBOW: 
                 float h = (index / (float)bars + phase) % 1f;
-                int c = hsvToRgb(alpha, h, 0.9f, 1.0f);
-                return new int[]{c, c};
+                return hsvToRgb(0xBB, h, 0.9f, 1.0f);
             case MATRIX:
                 int g = Math.min(255, (int)(50 + norm * 205));
-                int mc = (alpha << 24) | (g << 8);
-                return new int[]{mc, mc};
-            default:
-                int sc = (alpha << 24) | cfg;
-                return new int[]{sc, sc};
+                return alpha | (g << 8);
+            case HEATMAP:
+                // Red for high intensity, Blue for low
+                return hsvToRgb(0xBB, (1.0f - norm) * 0.66f, 0.9f, 1.0f);
+            case VAPORWAVE:
+                return hsvToRgb(0xBB, 0.75f + (norm * 0.25f), 0.5f, 1.0f);
+            default: // SOLID
+                return alpha | (config.barColor & 0x00FFFFFF);
         }
     }
 
