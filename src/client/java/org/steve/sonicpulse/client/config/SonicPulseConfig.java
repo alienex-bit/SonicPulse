@@ -28,7 +28,12 @@ public class SonicPulseConfig {
 
     public enum VisualizerStyle { SOLID, FLOATING_PEAKS }
 
-    public int hudX = 10, hudY = 10;
+    // Adjusted defaults to the new 2px flush gap
+    public int hudX = 2, hudY = 2; 
+    
+    // NEW: Added the official scale variable (1.0f = 100%)
+    public float hudScale = 1.0f; 
+    
     public int barColor = 0xFF00BFFF; 
     public int titleColor = 0xFFFF00FF;
     public int volume = 50;
@@ -40,7 +45,6 @@ public class SonicPulseConfig {
     public List<HistoryEntry> history = new ArrayList<>();
     public boolean hudVisible = true;
     
-    // New Dynamic Zone Toggles
     public boolean showTopZone = true;
     public boolean showMidZone = true;
     public boolean showBotZone = true;

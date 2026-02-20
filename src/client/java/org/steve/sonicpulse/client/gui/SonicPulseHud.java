@@ -32,20 +32,19 @@ public class SonicPulseHud implements HudRenderCallback {
         AudioTrack track = SonicPulseClient.getEngine().getPlayer().getPlayingTrack();
         if (track == null) return;
 
-        // Mathematical dynamic stacking based on toggles
         int topHeight = cfg.showTopZone ? 15 : 0;
         int midHeight = cfg.showMidZone ? 25 : 0;
-        int botHeight = cfg.showBotZone ? 50 : 0; // Much deeper zone specifically for the bars!
+        int botHeight = cfg.showBotZone ? 50 : 0; 
         
         int hudWidth = 140;
         int hudHeight = topHeight + midHeight + botHeight;
-        if (hudHeight == 0) return; // If everything is turned off, draw nothing.
+        if (hudHeight == 0) return; 
 
         int screenW = client.getWindow().getScaledWidth();
         int screenH = client.getWindow().getScaledHeight();
 
-        // Thumbnail scaling logic: 60% size in menu, 100% in-game
-        float scale = isPreview ? 0.6f : 1.0f;
+        // In menu it stays at 60%, in-game it uses your dynamic scale slider!
+        float scale = isPreview ? 0.6f : cfg.hudScale;
 
         int finalX = isPreview ? previewX : ((cfg.hudX >= 0) ? cfg.hudX : screenW + cfg.hudX - (int)(hudWidth * scale));
         int finalY = isPreview ? previewY : ((cfg.hudY >= 0) ? cfg.hudY : screenH + cfg.hudY - (int)(hudHeight * scale));
@@ -58,7 +57,7 @@ public class SonicPulseHud implements HudRenderCallback {
         context.fill(0, 0, hudWidth, hudHeight, cfg.skin.getBgColor());
         context.drawBorder(0, 0, hudWidth, hudHeight, cfg.skin.getBorderColor());
 
-        int currentY = 0; // Acts like a cursor, moving down as we draw each zone
+        int currentY = 0; 
 
         // --- TOP ZONE ---
         if (cfg.showTopZone) {

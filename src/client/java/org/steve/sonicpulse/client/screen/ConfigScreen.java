@@ -90,10 +90,17 @@ public class ConfigScreen extends Screen {
                 addDrawableChild(ButtonWidget.builder(Text.literal("Bot Zone: " + (config.showBotZone ? "ON" : "OFF")), b -> { config.showBotZone = !config.showBotZone; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 160, colW, 20).build());
                 break;
             case 2: // LAYOUT
-                addDrawableChild(ButtonWidget.builder(Text.literal("Top Left"), b -> { config.setPos(10, 10); refreshWidgets(); }).dimensions(contentX, y + 85, colW, 20).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("Top Right"), b -> { config.setPos(-10, 10); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 85, colW, 20).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("Bottom Left"), b -> { config.setPos(10, -10); refreshWidgets(); }).dimensions(contentX, y + 110, colW, 20).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("Bottom Right"), b -> { config.setPos(-10, -10); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 110, colW, 20).build());
+                // Updated to 2px minimal gap coordinates
+                addDrawableChild(ButtonWidget.builder(Text.literal("Top Left"), b -> { config.setPos(2, 2); refreshWidgets(); }).dimensions(contentX, y + 85, colW, 20).build());
+                addDrawableChild(ButtonWidget.builder(Text.literal("Top Right"), b -> { config.setPos(-2, 2); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 85, colW, 20).build());
+                addDrawableChild(ButtonWidget.builder(Text.literal("Bottom Left"), b -> { config.setPos(2, -2); refreshWidgets(); }).dimensions(contentX, y + 110, colW, 20).build());
+                addDrawableChild(ButtonWidget.builder(Text.literal("Bottom Right"), b -> { config.setPos(-2, -2); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 110, colW, 20).build());
+                
+                // NEW: HUD Scale Slider (50% to 100%)
+                addDrawableChild(new SliderWidget(contentX, y + 135, contentW, 20, Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%"), (config.hudScale - 0.5) / 0.5) { 
+                    @Override protected void updateMessage() { setMessage(Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%")); } 
+                    @Override protected void applyValue() { config.hudScale = (float)(0.5 + (value * 0.5)); SonicPulseConfig.save(); } 
+                });
                 break;
             case 3: // HISTORY
                 List<SonicPulseConfig.HistoryEntry> hist = showOnlyFavorites ? config.getFavoriteHistory() : new ArrayList<>(config.history);
@@ -185,7 +192,6 @@ public class ConfigScreen extends Screen {
             if (!playing) context.fill(gX + 130, y + 110, gX + 130 + bW, y + 130, 0x66FF0000); 
         }
 
-        // Adjusted preview location to perfectly center the new thumbnail scale
         if (playing || currentTab >= 3) hudRenderer.render(context, true, x + (BOX_WIDTH / 2) - 42, y + 8);
         else if (currentTab < 3) {
             context.drawBorder(x + (BOX_WIDTH/2) - 45, y + 8, 140, 55, ACTIVE_BORDER);
