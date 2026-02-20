@@ -3,7 +3,6 @@ package org.steve.sonicpulse.client.config;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.minecraft.client.MinecraftClient;
-import org.steve.sonicpulse.client.gui.SonicPulseSkin;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -11,93 +10,94 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class SonicPulseConfig {
-        /**
-         * Returns a list of history entries marked as favourite.
-         */
-        public List<HistoryEntry> getFavoriteHistory() {
-            List<HistoryEntry> favs = new ArrayList<>();
-            for (HistoryEntry e : history) {
-                if (e.favorite) favs.add(e);
-            }
-            return favs;
-        }
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static File configFile;
-    private static SonicPulseConfig INSTANCE;
+    public enum Skin {
+        DEFAULT(0x88000000, 0xFFFFFFFF, "Default"),
+        TRANSPARENT(0x00000000, 0x44FFFFFF, "Glass"),
+        VCR_OSD(0xFF000044, 0xFFFFFFFF, "VCR OSD"),
+        CYBER_NOIR(0xFF000000, 0xFF00E8FF, "Cyber Noir"),
+        MERMAID(0x9920948B, 0xFFBD93F9, "Mermaid"),
+        NEO_BRUTAL(0xFFBFFF00, 0xFF000000, "Neobrutalist");
 
+        private final int bgColor, borderColor;
+        private final String name;
+        Skin(int bg, int border, String name) { this.bgColor = bg; this.borderColor = border; this.name = name; }
+        public int getBgColor() { return bgColor; }
+        public int getBorderColor() { return borderColor; }
+        public String getName() { return name; }
+    }
+
+    public enum ColorMode { SOLID, RAINBOW, MATRIX, HEATMAP, VAPORWAVE, HORIZONTAL, PULSING_DUAL, NEON_OUTLINE }
     public enum VisualizerStyle { SOLID, SEGMENTED, MIRRORED, WAVEFORM, PEAK_DOTS }
-    public enum ColorMode { SOLID, HORIZONTAL, VERTICAL, RAINBOW, HEATMAP, VAPORWAVE, MATRIX, PULSING_DUAL, NEON_OUTLINE }
 
-    public int hudX = 10, hudY = 10, barColor = 0xFF00FF00, volume = 100;
-    // Title color is configurable independently from the visualizer bar color
+    public int hudX = 10, hudY = 10;
+    public float hudScale = 1.0f;
+    public int barColor = 0xFF00FF00;
     public int titleColor = 0xFFFF55FF;
-    public float hudScale = 0.75f;
-    public SonicPulseSkin skin = SonicPulseSkin.MODERN;
-    public VisualizerStyle visStyle = VisualizerStyle.SOLID;
+    public int volume = 50;
+    public Skin skin = Skin.DEFAULT;
     public ColorMode colorMode = ColorMode.SOLID;
-    public String lastUrl = "";
+    public VisualizerStyle visStyle = VisualizerStyle.SOLID;
+    public String currentTitle = null;
     public String lastRadioUrl = "";
     public List<HistoryEntry> history = new ArrayList<>();
 
-    // NEW: Transient field to force the HUD title (Not saved to disk)
-    public transient String currentTitle = null; 
-
     public static class HistoryEntry {
-        public String label = "";
-        public String url = "";
+        public String type, label, url;
         public boolean favorite = false;
-        
-        public HistoryEntry() {}
-        public HistoryEntry(String label, String url) { this.label = label; this.url = url; }
+        public HistoryEntry(String t, String l, String u) { type=t; label=l; url=u; }
     }
 
-    public static SonicPulseConfig get() {
-        if (INSTANCE == null) {
-            configFile = new File(MinecraftClient.getInstance().runDirectory, "config/sonicpulse.json");
-            load();
-        }
-        return INSTANCE;
-    }
-
-    public static void load() {
-        if (configFile.exists()) {
-            try (FileReader reader = new FileReader(configFile)) {
-                INSTANCE = GSON.fromJson(reader, SonicPulseConfig.class);
-                if (INSTANCE.history == null) INSTANCE.history = new ArrayList<>();
-            } catch (Exception e) {
-                INSTANCE = new SonicPulseConfig();
-            }
-        } else {
-            INSTANCE = new SonicPulseConfig();
-            save();
-        }
-    }
-
-    public static void save() {
-        try {
-            if (configFile.getParentFile() != null) configFile.getParentFile().mkdirs();
-            try (FileWriter writer = new FileWriter(configFile)) {
-                GSON.toJson(INSTANCE, writer);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void addHistory(String artist, String title, String url) {
-        String label = (artist != null && !artist.isEmpty() ? artist : "Unknown") + " - " + (title != null ? title : "Track");
-        if (history.stream().anyMatch(e -> e.url.equals(url))) return;
-        history.add(0, new HistoryEntry(label, url));
+    public void addHistory(String type, String label, String url) {
+        history.removeIf(e -> e.url.equals(url));
+        history.add(0, new HistoryEntry(type, label, url));
         if (history.size() > 50) history.remove(history.size() - 1);
         save();
     }
 
-    public void nextVisStyle() { visStyle = VisualizerStyle.values()[(visStyle.ordinal() + 1) % VisualizerStyle.values().length]; save(); }
-    public void nextColorMode() { colorMode = ColorMode.values()[(colorMode.ordinal() + 1) % ColorMode.values().length]; save(); }
-    public void nextSkin() { skin = SonicPulseSkin.values()[(skin.ordinal() + 1) % SonicPulseSkin.values().length]; save(); }
-    public void setPos(int x, int y) { this.hudX = x; this.hudY = y; save(); }
-    public void setScale(float s) { this.hudScale = s; save(); }
-    public void setColor(int c) { this.barColor = c; save(); }
-    public void setTitleColor(int c) { this.titleColor = c; save(); }
-    public void setUrl(String url) { this.lastUrl = url; save(); }
+    public List<HistoryEntry> getFavoriteHistory() {
+        return history.stream().filter(e -> e.favorite).toList();
+    }
+
+    public void setPos(int x, int y) { hudX = x; hudY = y; save(); }
+    public void setColor(int c) { barColor = c; save(); }
+    public void setTitleColor(int c) { titleColor = c; save(); }
+    
+    public void nextSkin() {
+        Skin[] s = Skin.values();
+        skin = s[(skin.ordinal() + 1) % s.length];
+        save();
+    }
+
+    public void nextColorMode() {
+        ColorMode[] m = ColorMode.values();
+        colorMode = m[(colorMode.ordinal() + 1) % m.length];
+        save();
+    }
+
+    public void nextVisStyle() {
+        VisualizerStyle[] v = VisualizerStyle.values();
+        visStyle = v[(visStyle.ordinal() + 1) % v.length];
+        save();
+    }
+
+    private static final File FILE = new File(MinecraftClient.getInstance().runDirectory, "config/sonicpulse.json");
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static SonicPulseConfig instance;
+
+    public static SonicPulseConfig get() {
+        if (instance == null) {
+            if (FILE.exists()) {
+                try (FileReader r = new FileReader(FILE)) { instance = GSON.fromJson(r, SonicPulseConfig.class); }
+                catch (Exception e) { instance = new SonicPulseConfig(); }
+            } else { instance = new SonicPulseConfig(); }
+        }
+        return instance;
+    }
+
+    public static void save() {
+        try {
+            FILE.getParentFile().mkdirs();
+            try (FileWriter w = new FileWriter(FILE)) { GSON.toJson(get(), w); }
+        } catch (Exception e) { e.printStackTrace(); }
+    }
 }
