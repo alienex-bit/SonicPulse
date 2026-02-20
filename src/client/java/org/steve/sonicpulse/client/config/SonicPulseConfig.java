@@ -26,8 +26,7 @@ public class SonicPulseConfig {
         public String getName() { return name; }
     }
 
-    // Simplified to only include SOLID style as requested
-    public enum VisualizerStyle { SOLID }
+    public enum VisualizerStyle { SOLID, FLOATING_PEAKS }
 
     public int hudX = 10, hudY = 10;
     public int barColor = 0xFF00BFFF; 
@@ -40,6 +39,11 @@ public class SonicPulseConfig {
     public String localMusicPath = "";
     public List<HistoryEntry> history = new ArrayList<>();
     public boolean hudVisible = true;
+    
+    // New Dynamic Zone Toggles
+    public boolean showTopZone = true;
+    public boolean showMidZone = true;
+    public boolean showBotZone = true;
 
     public static final int[] PALETTE = {
         0x00BFFF, 0x00CED1, 0x00FFC6, 0x32CD32, 0x7FFF00, 0xFFD300, 
@@ -81,7 +85,6 @@ public class SonicPulseConfig {
     }
 
     public void nextVisStyle() {
-        // Since only SOLID exists, this will keep it on SOLID
         VisualizerStyle[] v = VisualizerStyle.values();
         visStyle = v[(visStyle.ordinal() + 1) % v.length];
         save();

@@ -77,11 +77,17 @@ public class ConfigScreen extends Screen {
                 addDrawableChild(new SliderWidget(contentX, y + 140, contentW, 20, Text.literal("Volume: " + config.volume + "%"), config.volume / 100.0) { @Override protected void updateMessage() { setMessage(Text.literal("Volume: " + (int)(value * 100) + "%")); } @Override protected void applyValue() { config.volume = (int)(value * 100); SonicPulseConfig.save(); } });
                 break;
             case 1: // VISUALS
-                addDrawableChild(ButtonWidget.builder(Text.literal("HUD: " + (config.hudVisible ? "VISIBLE" : "HIDDEN")), b -> { config.hudVisible = !config.hudVisible; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, y + 85, colW, 20).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("Hud Title: " + SonicPulseConfig.COLOR_NAMES[titleColorIndex]), b -> { titleColorIndex = (titleColorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setTitleColor(SonicPulseConfig.PALETTE[titleColorIndex]); refreshWidgets(); }).dimensions(contentX, y + 110, colW, 20).build());
+                addDrawableChild(ButtonWidget.builder(Text.literal("HUD: " + (config.hudVisible ? "ON" : "OFF")), b -> { config.hudVisible = !config.hudVisible; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, y + 85, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Skin: " + config.skin.getName()), b -> { config.nextSkin(); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 85, colW, 20).build());
+                
+                addDrawableChild(ButtonWidget.builder(Text.literal("Title: " + SonicPulseConfig.COLOR_NAMES[titleColorIndex]), b -> { titleColorIndex = (titleColorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setTitleColor(SonicPulseConfig.PALETTE[titleColorIndex]); refreshWidgets(); }).dimensions(contentX, y + 110, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Bar: " + SonicPulseConfig.COLOR_NAMES[colorIndex]), b -> { colorIndex = (colorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setColor(SonicPulseConfig.PALETTE[colorIndex]); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 110, colW, 20).build());
+                
+                addDrawableChild(ButtonWidget.builder(Text.literal("Top Zone: " + (config.showTopZone ? "ON" : "OFF")), b -> { config.showTopZone = !config.showTopZone; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, y + 135, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Style: " + config.visStyle.name().replace("_", " ")), b -> { config.nextVisStyle(); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 135, colW, 20).build());
+                
+                addDrawableChild(ButtonWidget.builder(Text.literal("Mid Zone: " + (config.showMidZone ? "ON" : "OFF")), b -> { config.showMidZone = !config.showMidZone; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, y + 160, colW, 20).build());
+                addDrawableChild(ButtonWidget.builder(Text.literal("Bot Zone: " + (config.showBotZone ? "ON" : "OFF")), b -> { config.showBotZone = !config.showBotZone; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 160, colW, 20).build());
                 break;
             case 2: // LAYOUT
                 addDrawableChild(ButtonWidget.builder(Text.literal("Top Left"), b -> { config.setPos(10, 10); refreshWidgets(); }).dimensions(contentX, y + 85, colW, 20).build());
@@ -89,7 +95,7 @@ public class ConfigScreen extends Screen {
                 addDrawableChild(ButtonWidget.builder(Text.literal("Bottom Left"), b -> { config.setPos(10, -10); refreshWidgets(); }).dimensions(contentX, y + 110, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Bottom Right"), b -> { config.setPos(-10, -10); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 110, colW, 20).build());
                 break;
-            case 3: // HISTORY (Restored management buttons)
+            case 3: // HISTORY
                 List<SonicPulseConfig.HistoryEntry> hist = showOnlyFavorites ? config.getFavoriteHistory() : new ArrayList<>(config.history);
                 addDrawableChild(ButtonWidget.builder(Text.literal("§e★ Favs"), b -> { showOnlyFavorites = true; historyScrollOffset = 0; refreshWidgets(); }).dimensions(contentX, y + 65, (contentW/3)-2, 18).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("§eAll"), b -> { showOnlyFavorites = false; historyScrollOffset = 0; refreshWidgets(); }).dimensions(contentX + (contentW/3), y + 65, (contentW/3)-2, 18).build());
@@ -114,7 +120,6 @@ public class ConfigScreen extends Screen {
                         addDrawableChild(ButtonWidget.builder(Text.literal("X"), b -> { config.history.remove(e); SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + contentW - 20, rowY, 20, 20).build());
                     }
                 }
-                // Scroll Controls
                 if (historyScrollOffset > 0) addDrawableChild(ButtonWidget.builder(Text.literal("▲"), b -> { historyScrollOffset--; refreshWidgets(); }).dimensions(contentX + contentW + 2, y + 85, 12, 20).build());
                 if (hist.size() > historyScrollOffset + 5) addDrawableChild(ButtonWidget.builder(Text.literal("▼"), b -> { historyScrollOffset++; refreshWidgets(); }).dimensions(contentX + contentW + 2, y + 173, 12, 20).build());
                 break;
@@ -180,7 +185,8 @@ public class ConfigScreen extends Screen {
             if (!playing) context.fill(gX + 130, y + 110, gX + 130 + bW, y + 130, 0x66FF0000); 
         }
 
-        if (playing || currentTab >= 3) hudRenderer.render(context, true, x + (BOX_WIDTH / 2) - 35, y + 8);
+        // Adjusted preview location to perfectly center the new thumbnail scale
+        if (playing || currentTab >= 3) hudRenderer.render(context, true, x + (BOX_WIDTH / 2) - 42, y + 8);
         else if (currentTab < 3) {
             context.drawBorder(x + (BOX_WIDTH/2) - 45, y + 8, 140, 55, ACTIVE_BORDER);
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("SONICPULSE READY"), x + (BOX_WIDTH/2) + 25, y + 23, 0xFFFF00FF);
@@ -188,11 +194,6 @@ public class ConfigScreen extends Screen {
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("§fHistory, Radio or Local"), x + (BOX_WIDTH/2) + 25, y + 48, 0xFFFFFFFF);
         }
 
-        if (currentTab == 1) {
-            context.fill(contentX + (contentW / 2), y + 85, contentX + (contentW / 2) + 1, y + 155, 0x44FFFFFF);
-            context.drawCenteredTextWithShadow(textRenderer, Text.literal("HUD THEME"), contentX + (contentW / 4), y + 75, 0xFFFF00FF);
-            context.drawCenteredTextWithShadow(textRenderer, Text.literal("BAR VISUALS"), contentX + (contentW / 4) * 3, y + 75, 0xFFFF00FF);
-        }
         if (currentTab == 5) {
             String dp = (config.localMusicPath != null && !config.localMusicPath.isEmpty()) ? config.localMusicPath : "Default Folder";
             if (dp.length() > 30) dp = "..." + dp.substring(dp.length() - 27);
