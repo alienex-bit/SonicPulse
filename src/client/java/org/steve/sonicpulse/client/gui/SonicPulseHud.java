@@ -12,12 +12,13 @@ import org.steve.sonicpulse.client.config.SonicPulseConfig;
 public class SonicPulseHud implements HudRenderCallback {
     @Override
     public void onHudRender(DrawContext context, RenderTickCounter tickCounter) {
-        render(context);
+        render(context, false, 0, 0);
     }
 
-    private void render(DrawContext context) {
+    public void render(DrawContext context, boolean isPreview, int previewX, int previewY) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null || client.options.hudHidden) return;
+        if (!isPreview && client.currentScreen != null) return;
 
         AudioTrack track = SonicPulseClient.getEngine().getPlayer().getPlayingTrack();
         if (track == null) return;
@@ -27,19 +28,18 @@ public class SonicPulseHud implements HudRenderCallback {
         int height = client.getWindow().getScaledHeight();
         
         int hudW = 140, hudH = 55; 
-        int x = config.hudX >= 0 ? config.hudX : width + config.hudX - (int)(hudW * config.hudScale);
-        int y = config.hudY >= 0 ? config.hudY : height + config.hudY - (int)(hudH * config.hudScale);
+        int x = isPreview ? previewX : (config.hudX >= 0 ? config.hudX : width + config.hudX - (int)(hudW * config.hudScale));
+        int y = isPreview ? previewY : (config.hudY >= 0 ? config.hudY : height + config.hudY - (int)(hudH * config.hudScale));
 
         context.getMatrices().push();
         context.getMatrices().translate((int)x, (int)y, 0);
-        context.getMatrices().scale(config.hudScale, config.hudScale, 1.0f);
+        float scale = isPreview ? 1.0f : config.hudScale;
+        context.getMatrices().scale(scale, scale, 1.0f);
 
-        // 1. Background
         context.fill(0, 0, hudW, hudH, config.skin.getBgColor());
         context.drawBorder(0, 0, hudW, hudH, config.skin.getBorderColor());
         context.drawText(client.textRenderer, "♫", hudW - 12, 5, config.titleColor, false); 
 
-        // 2. Visualizer Logic
         float[] v = SonicPulseClient.getEngine().getVisualizerData();
         final int TARGET_BARS = 16;
         float[] aggr = new float[TARGET_BARS];
@@ -60,6 +60,13 @@ public class SonicPulseHud implements HudRenderCallback {
             int bw = barW - 2;
 
             switch (config.visStyle) {
+                case WAVEFORM:
+                    int waveMid = barBottomY - (maxH / 2);
+                    // Fixed: Cap bh to half of maxH so it cannot exceed HUD bounds
+                    int cappedBh = Math.min(bh, maxH / 2 - 2); 
+                    context.fill(bx, waveMid - cappedBh, bx + bw, waveMid + cappedBh, col);
+                    context.fill(bx, waveMid, bx + bw, waveMid + 1, 0x88FFFFFF);
+                    break;
                 case SEGMENTED:
                     int segs = 5;
                     for (int s = 0; s < segs; s++) {
@@ -72,12 +79,8 @@ public class SonicPulseHud implements HudRenderCallback {
                     break;
                 case MIRRORED:
                     int mid = barBottomY - (maxH / 2);
-                    context.fill(bx, mid - (bh / 2), bx + bw, mid + (bh / 2), col);
-                    break;
-                case WAVEFORM:
-                    int waveMid = barBottomY - (maxH / 2);
-                    context.fill(bx, waveMid - bh, bx + bw, waveMid + bh, col);
-                    context.fill(bx, waveMid, bx + bw, waveMid + 1, 0x88FFFFFF);
+                    int mirBh = Math.min(bh, maxH / 2 - 2);
+                    context.fill(bx, mid - (mirBh / 2), bx + bw, mid + (mirBh / 2), col);
                     break;
                 case PEAK_DOTS:
                     context.fill(bx, barBottomY - bh - 2, bx + bw, barBottomY - bh, col);
@@ -101,17 +104,14 @@ public class SonicPulseHud implements HudRenderCallback {
         int alpha = 0xBB << 24;
         switch (config.colorMode) {
             case RAINBOW: 
-                float h = (index / (float)bars + phase) % 1f;
-                return hsvToRgb(0xBB, h, 0.9f, 1.0f);
+                return hsvToRgb(0xBB, (index / (float)bars + phase) % 1f, 0.9f, 1.0f);
             case MATRIX:
-                int g = Math.min(255, (int)(50 + norm * 205));
-                return alpha | (g << 8);
+                return alpha | (Math.min(255, (int)(50 + norm * 205)) << 8);
             case HEATMAP:
-                // Red for high intensity, Blue for low
                 return hsvToRgb(0xBB, (1.0f - norm) * 0.66f, 0.9f, 1.0f);
             case VAPORWAVE:
                 return hsvToRgb(0xBB, 0.75f + (norm * 0.25f), 0.5f, 1.0f);
-            default: // SOLID
+            default: 
                 return alpha | (config.barColor & 0x00FFFFFF);
         }
     }
