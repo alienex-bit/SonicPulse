@@ -4,6 +4,7 @@ import com.sedmelluq.discord.lavaplayer.format.StandardAudioDataFormats;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
 import com.sedmelluq.discord.lavaplayer.player.DefaultAudioPlayerManager;
 import com.sedmelluq.discord.lavaplayer.source.AudioSourceManagers;
+import dev.lavalink.youtube.YoutubeAudioSourceManager;
 
 public class SonicPulseEngine {
     private final DefaultAudioPlayerManager manager = new DefaultAudioPlayerManager();
@@ -12,8 +13,11 @@ public class SonicPulseEngine {
     private boolean pending = false;
 
     public SonicPulseEngine() {
-        // FIX: Force Lavaplayer to output 16-bit Little Endian PCM
         manager.getConfiguration().setOutputFormat(StandardAudioDataFormats.COMMON_PCM_S16_LE);
+        
+        // Register the new robust YouTube source
+        YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager();
+        manager.registerSourceManager(youtube);
         
         AudioSourceManagers.registerRemoteSources(manager);
         player = manager.createPlayer();
@@ -26,9 +30,15 @@ public class SonicPulseEngine {
         manager.loadItem(url, new TrackLoadHandler(player, this)); 
     }
 
-    public void tick() { }
+    public void tick() { 
+        // Engine tick logic if needed in future
+    }
+
     public void clearPending() { this.pending = false; }
-    public boolean isActiveOrPending() { return player.getPlayingTrack() != null || pending; }
+
+    public boolean isActiveOrPending() { 
+        return player.getPlayingTrack() != null || pending; 
+    }
     
     public void stop() { 
         player.stopTrack(); 
@@ -36,5 +46,6 @@ public class SonicPulseEngine {
     }
     
     public AudioPlayer getPlayer() { return player; }
+    
     public float[] getVisualizerData() { return output.getAmplitudes(); }
 }
