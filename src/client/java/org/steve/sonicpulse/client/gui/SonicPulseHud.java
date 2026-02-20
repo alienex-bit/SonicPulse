@@ -18,15 +18,20 @@ public class SonicPulseHud implements HudRenderCallback {
 
     @Override
     public void onHudRender(DrawContext context, RenderTickCounter tickCounter) {
+        render(context, false, 0, 0);
+    }
+
+    public void render(DrawContext context, boolean isPreview, int previewX, int previewY) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null || client.options.hudHidden) return;
         
         SonicPulseConfig cfg = SonicPulseConfig.get();
         TextRenderer textRenderer = client.textRenderer;
 
-        // True Live Preview: Only hide the HUD if the open screen is NOT our ConfigScreen
         if (!cfg.hudVisible) return;
-        if (client.currentScreen != null && !(client.currentScreen instanceof ConfigScreen)) return;
+        
+        // Prevent normal HUD rendering if a screen is open, UNLESS it's our explicit live foreground override
+        if (!isPreview && client.currentScreen != null) return;
 
         AudioTrack track = SonicPulseClient.getEngine().getPlayer().getPlayingTrack();
         if (track == null) return;
@@ -39,7 +44,7 @@ public class SonicPulseHud implements HudRenderCallback {
         int ribbonHeight = 35; 
         
         context.getMatrices().push();
-        // Fixed exactly to the top of the screen (Y = 0)
+        // Fixed exactly to the top of the screen
         context.getMatrices().translate(0.0f, 0.0f, 0.0f);
         context.getMatrices().scale(scale, scale, 1.0f);
         
@@ -48,7 +53,7 @@ public class SonicPulseHud implements HudRenderCallback {
         context.fill(0, ribbonHeight - 1, ribbonWidth, ribbonHeight, cfg.skin.getBorderColor());
 
         // Determine Slot Positions dynamically
-        int logoSlot = 0; // 0=Left, 1=Center, 2=Right
+        int logoSlot = 0; 
         int trackSlot = 1;
         int barsSlot = 2;
 
