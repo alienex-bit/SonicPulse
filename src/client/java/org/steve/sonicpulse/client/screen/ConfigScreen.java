@@ -19,7 +19,7 @@ public class ConfigScreen extends Screen {
     private TextFieldWidget urlField, radioUrlField, renameField;
     private final SonicPulseConfig config = SonicPulseConfig.get();
     private int currentTab = 0, colorIndex = 0, titleColorIndex = 0, renamingIndex = -1, radioScrollOffset = 0, historyScrollOffset = 0;
-    private boolean showOnlyFavorites = false;
+    private boolean showOnlyFavorites = false; 
     private final List<String[]> radioStreams = new ArrayList<>();
     
     private static final String[] COLOR_NAMES = {"Green", "Cyan", "Magenta", "Yellow", "Orange", "Blue", "Red", "Coral", "DeepSkyBlue", "Violet", "Lime", "Salmon", "Turquoise", "Indigo", "Amber", "Mint", "Brown"};
@@ -55,6 +55,7 @@ public class ConfigScreen extends Screen {
                 renamingIndex = -1;
                 historyScrollOffset = 0;
                 radioScrollOffset = 0;
+                if (index == 3) showOnlyFavorites = false; 
                 refreshWidgets(); 
             }).dimensions(x + 5, y + 25 + (i * 22), SIDEBAR_WIDTH - 10, 20).build());
         }
@@ -62,14 +63,11 @@ public class ConfigScreen extends Screen {
         switch (currentTab) {
             case 0: // PLAY
                 urlField = new TextFieldWidget(textRenderer, contentX, y + 40, contentW, 20, Text.literal("URL"));
-                urlField.setMaxLength(256); 
-                addSelectableChild(urlField);
-                
+                urlField.setMaxLength(256); addSelectableChild(urlField);
                 addDrawableChild(ButtonWidget.builder(Text.literal("▶ PLAY"), b -> {
                     String u = urlField.getText();
                     if (!u.isEmpty()) {
-                        config.currentTitle = null;
-                        config.addHistory("Manual", "URL", u);
+                        config.currentTitle = null; 
                         SonicPulseClient.getEngine().stop();
                         SonicPulseClient.getEngine().playTrack(u);
                     }
@@ -89,17 +87,12 @@ public class ConfigScreen extends Screen {
                 addDrawableChild(ButtonWidget.builder(Text.literal("Title: " + COLOR_NAMES[titleColorIndex]), b -> { titleColorIndex = (titleColorIndex+1)%BAR_COLORS.length; config.setTitleColor(BAR_COLORS[titleColorIndex]); refreshWidgets(); }).dimensions(contentX, y + 130, contentW, 20).build());
                 break;
             case 3: // HISTORY
-                int filterBtnW = contentW / 3 - 2;
+                int filterBtnW = (contentW / 3) - 2;
                 addDrawableChild(ButtonWidget.builder(Text.literal("§e★ Favourites"), b -> { showOnlyFavorites = true; historyScrollOffset = 0; refreshWidgets(); }).dimensions(contentX, y + 25, filterBtnW, 18).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("§eAll History"), b -> { showOnlyFavorites = false; historyScrollOffset = 0; refreshWidgets(); }).dimensions(contentX + filterBtnW + 2, y + 25, filterBtnW, 18).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("§cClear History"), b -> { 
-                    config.history.removeIf(e -> !e.favorite); 
-                    SonicPulseConfig.save(); 
-                    historyScrollOffset = 0; 
-                    refreshWidgets(); 
-                }).dimensions(contentX + (filterBtnW * 2) + 4, y + 25, filterBtnW, 18).build());
+                addDrawableChild(ButtonWidget.builder(Text.literal("§cClear"), b -> { config.history.removeIf(e -> !e.favorite); SonicPulseConfig.save(); historyScrollOffset = 0; refreshWidgets(); }).dimensions(contentX + (filterBtnW * 2) + 4, y + 25, filterBtnW, 18).build());
 
-                List<SonicPulseConfig.HistoryEntry> hist = showOnlyFavorites ? config.getFavoriteHistory() : config.history;
+                List<SonicPulseConfig.HistoryEntry> hist = showOnlyFavorites ? config.getFavoriteHistory() : new ArrayList<>(config.history);
                 int hVisible = 6;
                 if (hist.size() > hVisible) {
                     addDrawableChild(ButtonWidget.builder(Text.literal("▲"), b -> { if (historyScrollOffset > 0) { historyScrollOffset--; refreshWidgets(); } }).dimensions(contentX + contentW - 20, y + 48, 20, 20).build());
@@ -112,10 +105,10 @@ public class ConfigScreen extends Screen {
                     if (renamingIndex == eIdx) {
                         renameField = new TextFieldWidget(textRenderer, contentX, rowY, contentW - 50, 20, Text.literal("Rename"));
                         renameField.setText(e.label); addSelectableChild(renameField);
-                        addDrawableChild(ButtonWidget.builder(Text.literal("✔"), b -> { e.label = renameField.getText(); renamingIndex = -1; refreshWidgets(); SonicPulseConfig.save(); }).dimensions(contentX + contentW - 45, rowY, 20, 20).build());
+                        addDrawableChild(ButtonWidget.builder(Text.literal("✔"), b -> { e.label = renameField.getText(); renamingIndex = -1; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + contentW - 45, rowY, 20, 20).build());
                     } else {
                         addDrawableChild(ButtonWidget.builder(Text.literal(e.label), b -> { config.currentTitle = e.label; SonicPulseClient.getEngine().stop(); SonicPulseClient.getEngine().playTrack(e.url); }).dimensions(contentX, rowY, contentW - 90, 20).build());
-                        addDrawableChild(ButtonWidget.builder(Text.literal(e.favorite ? "★" : "☆"), b -> { e.favorite = !e.favorite; refreshWidgets(); SonicPulseConfig.save(); }).dimensions(contentX + contentW - 87, rowY, 20, 20).build());
+                        addDrawableChild(ButtonWidget.builder(Text.literal(e.favorite ? "★" : "☆"), b -> { e.favorite = !e.favorite; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + contentW - 87, rowY, 20, 20).build());
                         addDrawableChild(ButtonWidget.builder(Text.literal("R"), b -> { renamingIndex = eIdx; refreshWidgets(); }).dimensions(contentX + contentW - 66, rowY, 20, 20).build());
                         addDrawableChild(ButtonWidget.builder(Text.literal("X"), b -> { config.history.remove(e); SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + contentW - 45, rowY, 20, 20).build());
                     }
@@ -130,26 +123,21 @@ public class ConfigScreen extends Screen {
                 }
                 radioUrlField = new TextFieldWidget(textRenderer, contentX, y + 50, contentW - 40, 20, Text.literal("M3U")); addSelectableChild(radioUrlField);
                 addDrawableChild(ButtonWidget.builder(Text.literal("Load"), b -> loadRadioM3U(radioUrlField.getText())).dimensions(contentX + contentW - 35, y + 50, 35, 20).build());
+                
                 if (radioStreams.size() > 5) {
                     addDrawableChild(ButtonWidget.builder(Text.literal("▲"), b -> { if (radioScrollOffset > 0) { radioScrollOffset--; refreshWidgets(); } }).dimensions(contentX + contentW - 20, y + 75, 20, 20).build());
                     addDrawableChild(ButtonWidget.builder(Text.literal("▼"), b -> { if (radioScrollOffset < radioStreams.size() - 5) { radioScrollOffset++; refreshWidgets(); } }).dimensions(contentX + contentW - 20, y + 75 + 88, 20, 20).build());
                 }
                 for (int i = radioScrollOffset; i < Math.min(radioStreams.size(), radioScrollOffset + 5); i++) {
                     String[] rs = radioStreams.get(i);
-                    addDrawableChild(ButtonWidget.builder(Text.literal(rs[0]), b -> { config.currentTitle = rs[0]; config.addHistory("Radio", rs[0], rs[1]); SonicPulseClient.getEngine().stop(); SonicPulseClient.getEngine().playTrack(rs[1]); }).dimensions(contentX, y + 75 + ((i - radioScrollOffset) * 22), contentW - 25, 20).build());
+                    addDrawableChild(ButtonWidget.builder(Text.literal(rs[0]), b -> { 
+                        config.currentTitle = rs[0]; 
+                        // Force save history with the Station Name immediately to avoid metadata overwrite
+                        config.addHistory("Radio", rs[0], rs[1]); 
+                        SonicPulseClient.getEngine().stop(); 
+                        SonicPulseClient.getEngine().playTrack(rs[1]); 
+                    }).dimensions(contentX, y + 75 + ((i - radioScrollOffset) * 22), contentW - 25, 20).build());
                 }
-                break;
-            case 2: // LAYOUT
-                addDrawableChild(ButtonWidget.builder(Text.literal("Top Left"), b -> config.setPos(10, 10)).dimensions(contentX, y + 40, contentW/2 - 2, 20).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("Top Right"), b -> config.setPos(-10, 10)).dimensions(contentX + contentW/2 + 2, y + 40, contentW/2 - 2, 20).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("Bot Left"), b -> config.setPos(10, -10)).dimensions(contentX, y + 65, contentW/2 - 2, 20).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("Bot Right"), b -> config.setPos(-10, -10)).dimensions(contentX + contentW/2 + 2, y + 65, contentW/2 - 2, 20).build());
-                break;
-            case 5: // LOCAL
-                addDrawableChild(ButtonWidget.builder(Text.literal("Set Folder"), b -> {
-                    urlField = new TextFieldWidget(textRenderer, contentX, y + 55, contentW, 20, Text.literal("Path")); addSelectableChild(urlField);
-                    addDrawableChild(ButtonWidget.builder(Text.literal("OK"), bb -> setLocalFolder(new File(urlField.getText()))).dimensions(contentX, y + 80, 40, 20).build());
-                }).dimensions(contentX, y + 30, contentW, 20).build());
                 break;
         }
     }
@@ -159,14 +147,6 @@ public class ConfigScreen extends Screen {
         new Thread(() -> { try { java.net.URL u = new java.net.URI(url).toURL(); java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(u.openStream())); String l, lt = null; while ((l = r.readLine()) != null) { l = l.trim(); if (l.isEmpty() || l.startsWith("#EXTM3U")) continue; if (l.startsWith("#EXTINF")) { int c = l.indexOf(","); if (c != -1) lt = l.substring(c + 1).trim(); } else if (!l.startsWith("#")) { radioStreams.add(new String[]{lt != null ? lt : "Station", l}); lt = null; } } r.close(); } catch (Exception e) {} MinecraftClient.getInstance().execute(this::refreshWidgets); }).start();
     }
 
-    @Override 
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (currentTab == 0 && urlField != null && urlField.isMouseOver(mouseX, mouseY)) {
-            urlField.setText("");
-        }
-        return super.mouseClicked(mouseX, mouseY, button);
-    }
-
     @Override public void render(DrawContext context, int mx, int my, float d) {
         int x = (width - BOX_WIDTH) / 2, y = (height - BOX_HEIGHT) / 2;
         context.fill(x, y, x + BOX_WIDTH, y + BOX_HEIGHT, config.skin.getBgColor());
@@ -174,21 +154,16 @@ public class ConfigScreen extends Screen {
         context.fill(x + SIDEBAR_WIDTH, y + 20, x + SIDEBAR_WIDTH + 1, y + BOX_HEIGHT - 5, 0x44FFFFFF);
         context.drawTextWithShadow(textRenderer, Text.literal("SONICPULSE"), x + 10, y + 8, 0xFF55FF);
         
-        if (currentTab == 0) {
-            context.drawTextWithShadow(textRenderer, Text.literal("§dEnter Stream URL (MP3, Web Radio, or YouTube)"), x + SIDEBAR_WIDTH + 10, y + 28, 0xFF55FF);
+        if (currentTab == 3) {
+            int contentX = x + SIDEBAR_WIDTH + 10;
+            int filterBtnW = ((BOX_WIDTH - SIDEBAR_WIDTH - 20) / 3) - 2;
+            int highlightX = showOnlyFavorites ? contentX : contentX + filterBtnW + 2;
+            context.drawBorder(highlightX - 1, y + 24, filterBtnW + 2, 20, 0xFF00FFFF); 
         }
 
         super.render(context, mx, my, d);
         if (currentTab == 0 && urlField != null) urlField.render(context, mx, my, d);
         if (currentTab == 3 && renameField != null && renamingIndex != -1) renameField.render(context, mx, my, d);
         if (currentTab == 4 && radioUrlField != null) radioUrlField.render(context, mx, my, d);
-    }
-
-    public void setLocalFolder(File folder) {
-        if (folder.exists() && folder.isDirectory()) {
-            File[] files = folder.listFiles((f, name) -> name.endsWith(".mp3") || name.endsWith(".wav") || name.endsWith(".ogg"));
-            if (files != null) { for (File file : files) localSongs.add(file); }
-        }
-        refreshWidgets();
     }
 }

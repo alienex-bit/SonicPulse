@@ -16,25 +16,41 @@ public class TrackLoadHandler implements AudioLoadResultHandler {
         this.engine = engine;
     }
 
-    @Override 
-    public void trackLoaded(AudioTrack track) { 
-        // Hook into History!
-        SonicPulseConfig.get().addHistory(track.getInfo().author, track.getInfo().title, track.getInfo().uri);
-        player.playTrack(track); 
-        engine.clearPending(); 
-    }
-
-    @Override 
-    public void playlistLoaded(AudioPlaylist playlist) { 
-        if (!playlist.getTracks().isEmpty()) {
-            AudioTrack track = playlist.getTracks().get(0);
-            // Hook into History for playlists too!
-            SonicPulseConfig.get().addHistory(track.getInfo().author, track.getInfo().title, track.getInfo().uri);
-            player.playTrack(track); 
+    @Override
+    public void trackLoaded(AudioTrack track) {
+        engine.clearPending();
+        player.playTrack(track);
+        
+        String title = track.getInfo().title;
+        String author = track.getInfo().author;
+        
+        // Only update history if we have real data that isn't "Unknown"
+        if (title != null && !title.toLowerCase().contains("unknown") && !title.equalsIgnoreCase("stream")) {
+            String label = title;
+            if (author != null && !author.equalsIgnoreCase("unknown")) {
+                label = author + " - " + title;
+            }
+            SonicPulseConfig.get().addHistory("Track", label, track.getInfo().uri);
         }
-        engine.clearPending(); 
     }
 
-    @Override public void noMatches() { engine.clearPending(); }
-    @Override public void loadFailed(FriendlyException exception) { engine.clearPending(); }
+    @Override
+    public void playlistLoaded(AudioPlaylist playlist) {
+        engine.clearPending();
+        if (!playlist.getTracks().isEmpty()) {
+            AudioTrack firstTrack = playlist.getTracks().get(0);
+            player.playTrack(firstTrack);
+            
+            String title = firstTrack.getInfo().title;
+            if (title != null && !title.toLowerCase().contains("unknown")) {
+                SonicPulseConfig.get().addHistory("Playlist", title, firstTrack.getInfo().uri);
+            }
+        }
+    }
+
+    @Override
+    public void noMatches() { engine.clearPending(); }
+
+    @Override
+    public void loadFailed(FriendlyException exception) { engine.clearPending(); }
 }
