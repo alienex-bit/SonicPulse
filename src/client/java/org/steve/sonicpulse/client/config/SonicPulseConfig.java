@@ -27,13 +27,13 @@ public class SonicPulseConfig {
     }
 
     public enum VisualizerStyle { SOLID, FLOATING_PEAKS }
+    
+    // NEW: The Master HUD Mode
+    public enum HudMode { CLASSIC, CINEMATIC }
 
-    // Adjusted defaults to the new 2px flush gap
+    public HudMode hudMode = HudMode.CLASSIC;
     public int hudX = 2, hudY = 2; 
-    
-    // NEW: Added the official scale variable (1.0f = 100%)
     public float hudScale = 1.0f; 
-    
     public int barColor = 0xFF00BFFF; 
     public int titleColor = 0xFFFF00FF;
     public int volume = 50;
@@ -91,6 +91,13 @@ public class SonicPulseConfig {
     public void nextVisStyle() {
         VisualizerStyle[] v = VisualizerStyle.values();
         visStyle = v[(visStyle.ordinal() + 1) % v.length];
+        save();
+    }
+
+    // Cycles the Master HUD Mode
+    public void nextHudMode() {
+        HudMode[] m = HudMode.values();
+        hudMode = m[(hudMode.ordinal() + 1) % m.length];
         save();
     }
 

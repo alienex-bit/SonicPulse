@@ -9,7 +9,6 @@ import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 import org.steve.sonicpulse.client.SonicPulseClient;
 import org.steve.sonicpulse.client.config.SonicPulseConfig;
-import org.steve.sonicpulse.client.gui.SonicPulseHud;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -26,7 +25,6 @@ public class ConfigScreen extends Screen {
     private final List<String[]> radioStreams = new ArrayList<>();
     private final List<File> localFiles = new ArrayList<>();
     private static final int ACTIVE_BORDER = 0xFFFF00FF; 
-    private final SonicPulseHud hudRenderer = new SonicPulseHud();
     private ButtonWidget playBtn, pauseBtn, stopBtn;
 
     public ConfigScreen() { 
@@ -89,15 +87,20 @@ public class ConfigScreen extends Screen {
                 addDrawableChild(ButtonWidget.builder(Text.literal("Mid Zone: " + (config.showMidZone ? "ON" : "OFF")), b -> { config.showMidZone = !config.showMidZone; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, y + 160, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Bot Zone: " + (config.showBotZone ? "ON" : "OFF")), b -> { config.showBotZone = !config.showBotZone; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 160, colW, 20).build());
                 break;
-            case 2: // LAYOUT
-                // Updated to 2px minimal gap coordinates
-                addDrawableChild(ButtonWidget.builder(Text.literal("Top Left"), b -> { config.setPos(2, 2); refreshWidgets(); }).dimensions(contentX, y + 85, colW, 20).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("Top Right"), b -> { config.setPos(-2, 2); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 85, colW, 20).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("Bottom Left"), b -> { config.setPos(2, -2); refreshWidgets(); }).dimensions(contentX, y + 110, colW, 20).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("Bottom Right"), b -> { config.setPos(-2, -2); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 110, colW, 20).build());
+            case 2: // LAYOUT - Contextual based on HUD Mode
+                addDrawableChild(ButtonWidget.builder(Text.literal("Mode: " + config.hudMode.name()), b -> { config.nextHudMode(); refreshWidgets(); }).dimensions(contentX, y + 85, contentW, 20).build());
                 
-                // NEW: HUD Scale Slider (50% to 100%)
-                addDrawableChild(new SliderWidget(contentX, y + 135, contentW, 20, Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%"), (config.hudScale - 0.5) / 0.5) { 
+                if (config.hudMode == SonicPulseConfig.HudMode.CLASSIC) {
+                    addDrawableChild(ButtonWidget.builder(Text.literal("Top Left"), b -> { config.setPos(2, 2); refreshWidgets(); }).dimensions(contentX, y + 110, colW, 20).build());
+                    addDrawableChild(ButtonWidget.builder(Text.literal("Top Right"), b -> { config.setPos(-2, 2); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 110, colW, 20).build());
+                    addDrawableChild(ButtonWidget.builder(Text.literal("Bottom Left"), b -> { config.setPos(2, -2); refreshWidgets(); }).dimensions(contentX, y + 135, colW, 20).build());
+                    addDrawableChild(ButtonWidget.builder(Text.literal("Bottom Right"), b -> { config.setPos(-2, -2); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 135, colW, 20).build());
+                } else {
+                    addDrawableChild(ButtonWidget.builder(Text.literal("Top Edge"), b -> { config.setPos(0, 2); refreshWidgets(); }).dimensions(contentX, y + 110, colW, 20).build());
+                    addDrawableChild(ButtonWidget.builder(Text.literal("Bottom Edge"), b -> { config.setPos(0, -2); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 110, colW, 20).build());
+                }
+                
+                addDrawableChild(new SliderWidget(contentX, y + 160, contentW, 20, Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%"), (config.hudScale - 0.5) / 0.5) { 
                     @Override protected void updateMessage() { setMessage(Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%")); } 
                     @Override protected void applyValue() { config.hudScale = (float)(0.5 + (value * 0.5)); SonicPulseConfig.save(); } 
                 });
@@ -192,12 +195,12 @@ public class ConfigScreen extends Screen {
             if (!playing) context.fill(gX + 130, y + 110, gX + 130 + bW, y + 130, 0x66FF0000); 
         }
 
-        if (playing || currentTab >= 3) hudRenderer.render(context, true, x + (BOX_WIDTH / 2) - 42, y + 8);
-        else if (currentTab < 3) {
-            context.drawBorder(x + (BOX_WIDTH/2) - 45, y + 8, 140, 55, ACTIVE_BORDER);
-            context.drawCenteredTextWithShadow(textRenderer, Text.literal("SONICPULSE READY"), x + (BOX_WIDTH/2) + 25, y + 23, 0xFFFF00FF);
-            context.drawCenteredTextWithShadow(textRenderer, Text.literal("§fPaste a URL or select from"), x + (BOX_WIDTH/2) + 25, y + 38, 0xFFFFFFFF);
-            context.drawCenteredTextWithShadow(textRenderer, Text.literal("§fHistory, Radio or Local"), x + (BOX_WIDTH/2) + 25, y + 48, 0xFFFFFFFF);
+        // Live Preview messaging
+        if (currentTab < 3) {
+            context.drawBorder(x + (BOX_WIDTH/2) - 80, y + 8, 190, 55, ACTIVE_BORDER);
+            context.drawCenteredTextWithShadow(textRenderer, Text.literal("SONICPULSE READY"), x + (BOX_WIDTH/2) + 15, y + 23, 0xFFFF00FF);
+            context.drawCenteredTextWithShadow(textRenderer, Text.literal("§fLook at the edges of your screen"), x + (BOX_WIDTH/2) + 15, y + 38, 0xFFFFFFFF);
+            context.drawCenteredTextWithShadow(textRenderer, Text.literal("§fto see your LIVE HUD updates!"), x + (BOX_WIDTH/2) + 15, y + 48, 0xFFFFFFFF);
         }
 
         if (currentTab == 5) {
