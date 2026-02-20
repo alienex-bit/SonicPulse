@@ -32,150 +32,99 @@ public class SonicPulseHud implements HudRenderCallback {
         if (track == null) return;
 
         int screenW = client.getWindow().getScaledWidth();
-        int screenH = client.getWindow().getScaledHeight();
         float scale = cfg.hudScale;
 
+        // The Cinematic Ribbon logic
+        int ribbonWidth = (int)(screenW / scale);
+        int ribbonHeight = 35; 
+        
         context.getMatrices().push();
+        // Fixed exactly to the top of the screen (Y = 0)
+        context.getMatrices().translate(0.0f, 0.0f, 0.0f);
+        context.getMatrices().scale(scale, scale, 1.0f);
+        
+        // Draw a flat full-width box with a line border
+        context.fill(0, 0, ribbonWidth, ribbonHeight, cfg.skin.getBgColor());
+        context.fill(0, ribbonHeight - 1, ribbonWidth, ribbonHeight, cfg.skin.getBorderColor());
 
-        if (cfg.hudMode == SonicPulseConfig.HudMode.CLASSIC) {
-            int topHeight = cfg.showTopZone ? 15 : 0;
-            int midHeight = cfg.showMidZone ? 25 : 0;
-            int botHeight = cfg.showBotZone ? 50 : 0; 
-            
-            int hudWidth = 140;
-            int hudHeight = topHeight + midHeight + botHeight;
-            if (hudHeight == 0) { context.getMatrices().pop(); return; }
+        // Determine Slot Positions dynamically
+        int logoSlot = 0; // 0=Left, 1=Center, 2=Right
+        int trackSlot = 1;
+        int barsSlot = 2;
 
-            int finalX = (cfg.hudX >= 0) ? cfg.hudX : screenW + cfg.hudX - (int)(hudWidth * scale);
-            int finalY = (cfg.hudY >= 0) ? cfg.hudY : screenH + cfg.hudY - (int)(hudHeight * scale);
+        switch(cfg.ribbonLayout) {
+            case LOG_TRK_BAR: logoSlot=0; trackSlot=1; barsSlot=2; break;
+            case LOG_BAR_TRK: logoSlot=0; barsSlot=1; trackSlot=2; break;
+            case TRK_LOG_BAR: trackSlot=0; logoSlot=1; barsSlot=2; break;
+            case TRK_BAR_LOG: trackSlot=0; barsSlot=1; logoSlot=2; break;
+            case BAR_LOG_TRK: barsSlot=0; logoSlot=1; trackSlot=2; break;
+            case BAR_TRK_LOG: barsSlot=0; trackSlot=1; logoSlot=2; break;
+        }
 
-            context.getMatrices().translate((float)finalX, (float)finalY, 0.0f);
-            context.getMatrices().scale(scale, scale, 1.0f);
+        int leftX = 10;
+        int centerX = ribbonWidth / 2;
+        int rightX = ribbonWidth - 10;
 
-            context.fill(0, 0, hudWidth, hudHeight, cfg.skin.getBgColor());
-            context.drawBorder(0, 0, hudWidth, hudHeight, cfg.skin.getBorderColor());
+        // --- Render Logo ---
+        if (cfg.showLogo) {
+            int titleColor = cfg.titleColor | 0xFF000000;
+            String logoTxt = "SONICPULSE ♫";
+            int w = textRenderer.getWidth(logoTxt);
+            int drawX = (logoSlot == 0) ? leftX : ((logoSlot == 1) ? centerX - (w / 2) : rightX - w);
+            context.drawText(textRenderer, Text.literal(logoTxt), drawX, 14, titleColor, false);
+        }
 
-            int currentY = 0; 
-            if (cfg.showTopZone) {
-                int titleColor = cfg.titleColor | 0xFF000000;
-                context.drawText(textRenderer, Text.literal("SONICPULSE"), 5, currentY + 5, titleColor, false);
-                context.drawText(textRenderer, Text.literal("♫"), hudWidth - 12, currentY + 5, titleColor, false); 
-                currentY += topHeight;
-            }
-
-            if (cfg.showMidZone) {
-                String trackName = (cfg.currentTitle != null) ? cfg.currentTitle : track.getInfo().title;
-                if (trackName != null && trackName.contains("|")) {
-                    String[] parts = trackName.split("\\|", 2);
-                    String artist = parts[0];
-                    String song = parts[1];
-                    if (song.toLowerCase().startsWith(artist.toLowerCase())) {
-                        song = song.substring(artist.length()).trim();
-                        if (song.startsWith("-")) song = song.substring(1).trim();
-                    }
-                    context.drawText(textRenderer, Text.literal(textRenderer.trimToWidth(artist, hudWidth - 10)), 5, currentY + 2, 0xFFFFFFFF, false);
-                    context.getMatrices().push();
-                    context.getMatrices().translate(5.0f, currentY + 12.0f, 0.0f);
-                    context.getMatrices().scale(0.8f, 0.8f, 1.0f);
-                    context.drawText(textRenderer, Text.literal(textRenderer.trimToWidth(song, (int)((hudWidth - 10) / 0.8f))), 0, 0, 0xFFFFFFFF, false);
-                    context.getMatrices().pop();
-                } else if (trackName != null) {
-                    context.drawText(textRenderer, Text.literal(textRenderer.trimToWidth(trackName, hudWidth - 10)), 5, currentY + 8, 0xFFFFFFFF, false);
-                }
-                currentY += midHeight;
-            }
-
-            if (cfg.showBotZone) {
-                int barColor = cfg.barColor | 0xFF000000;
-                float[] vData = SonicPulseClient.getEngine().getVisualizerData();
-                int barsCount = 16;
-                int barWidth = 6;
-                int barSpacing = 2;
-                int bottomY = currentY + botHeight - 6;
+        // --- Render Track ---
+        if (cfg.showTrack) {
+            String trackName = (cfg.currentTitle != null) ? cfg.currentTitle : track.getInfo().title;
+            if (trackName != null) {
+                trackName = trackName.replace("|", " - "); // Flatten title for the ribbon
+                int textW = textRenderer.getWidth(trackName);
                 
-                for (int i = 0; i < barsCount; i++) {
-                    float amplitude = (vData != null && vData.length > i) ? vData[i] : 0.0f;
-                    int barHeight = Math.max((int)(amplitude * 40), 1); 
-                    int drawX = 5 + i * (barWidth + barSpacing);
-                    
-                    context.fill(drawX, bottomY - barHeight, drawX + barWidth, bottomY, barColor);
+                // Smart Truncation: Don't let a huge title crash into the side elements
+                int maxW = (ribbonWidth / 3) - 20;
+                if (textW > maxW) {
+                    trackName = textRenderer.trimToWidth(trackName, maxW - textRenderer.getWidth("...")) + "...";
+                    textW = textRenderer.getWidth(trackName);
+                }
 
-                    if (cfg.visStyle == SonicPulseConfig.VisualizerStyle.FLOATING_PEAKS) {
-                        if (amplitude >= floatingPeaks[i]) {
-                            floatingPeaks[i] = amplitude;
-                        } else {
-                            floatingPeaks[i] -= 0.005f; 
-                            if (floatingPeaks[i] < amplitude) floatingPeaks[i] = amplitude;
-                        }
-                        int peakHeight = Math.max((int)(floatingPeaks[i] * 40), 1);
-                        context.fill(drawX, bottomY - peakHeight - 2, drawX + barWidth, bottomY - peakHeight - 1, 0xFFFFFFFF);
-                    }
-                }
+                int drawX = (trackSlot == 0) ? leftX : ((trackSlot == 1) ? centerX - (textW / 2) : rightX - textW);
+                context.drawText(textRenderer, Text.literal(trackName), drawX, 14, 0xFFFFFFFF, false);
             }
-        } 
-        else if (cfg.hudMode == SonicPulseConfig.HudMode.CINEMATIC) {
-            // The Cinematic Ribbon logic
-            int ribbonWidth = (int)(screenW / scale);
-            int ribbonHeight = 35; 
+        }
+
+        // --- Render Bars ---
+        if (cfg.showBars) {
+            int barColor = cfg.barColor | 0xFF000000;
+            float[] vData = SonicPulseClient.getEngine().getVisualizerData();
+            int barsCount = 16;
+            int barWidth = 6;
+            int barSpacing = 2;
+            int totalBarsWidth = barsCount * (barWidth + barSpacing) - barSpacing;
             
-            int finalX = 0; // Stretches fully across
-            int finalY = (cfg.hudY >= 0) ? cfg.hudY : screenH + cfg.hudY - (int)(ribbonHeight * scale);
+            int drawStartX = (barsSlot == 0) ? leftX : ((barsSlot == 1) ? centerX - (totalBarsWidth / 2) : rightX - totalBarsWidth);
+            int bottomY = ribbonHeight - 5;
             
-            context.getMatrices().translate((float)finalX, (float)finalY, 0.0f);
-            context.getMatrices().scale(scale, scale, 1.0f);
-            
-            // Draw a flat full-width box with a line border
-            context.fill(0, 0, ribbonWidth, ribbonHeight, cfg.skin.getBgColor());
-            context.fill(0, ribbonHeight - 1, ribbonWidth, ribbonHeight, cfg.skin.getBorderColor());
-            
-            // LEFT: Logo
-            if (cfg.showTopZone) {
-                int titleColor = cfg.titleColor | 0xFF000000;
-                context.drawText(textRenderer, Text.literal("SONICPULSE ♫"), 10, 14, titleColor, false);
-            }
-            
-            // CENTER: Track Info
-            if (cfg.showMidZone) {
-                String trackName = (cfg.currentTitle != null) ? cfg.currentTitle : track.getInfo().title;
-                if (trackName != null) {
-                    trackName = trackName.replace("|", " - "); // Flatten title for the ribbon
-                    int textW = textRenderer.getWidth(trackName);
-                    context.drawText(textRenderer, Text.literal(trackName), (ribbonWidth / 2) - (textW / 2), 14, 0xFFFFFFFF, false);
-                }
-            }
-            
-            // RIGHT: Bars
-            if (cfg.showBotZone) {
-                int barColor = cfg.barColor | 0xFF000000;
-                float[] vData = SonicPulseClient.getEngine().getVisualizerData();
-                int barsCount = 16;
-                int barWidth = 6;
-                int barSpacing = 2;
-                int totalBarsWidth = barsCount * (barWidth + barSpacing);
-                int startX = ribbonWidth - totalBarsWidth - 10;
-                int bottomY = ribbonHeight - 5;
+            for (int i = 0; i < barsCount; i++) {
+                float amplitude = (vData != null && vData.length > i) ? vData[i] : 0.0f;
+                int barHeight = Math.max((int)(amplitude * 25), 1); 
+                int drawX = drawStartX + i * (barWidth + barSpacing);
                 
-                for (int i = 0; i < barsCount; i++) {
-                    float amplitude = (vData != null && vData.length > i) ? vData[i] : 0.0f;
-                    int barHeight = Math.max((int)(amplitude * 25), 1); 
-                    int drawX = startX + i * (barWidth + barSpacing);
-                    
-                    context.fill(drawX, bottomY - barHeight, drawX + barWidth, bottomY, barColor);
+                context.fill(drawX, bottomY - barHeight, drawX + barWidth, bottomY, barColor);
 
-                    if (cfg.visStyle == SonicPulseConfig.VisualizerStyle.FLOATING_PEAKS) {
-                        if (amplitude >= floatingPeaks[i]) {
-                            floatingPeaks[i] = amplitude;
-                        } else {
-                            floatingPeaks[i] -= 0.005f; 
-                            if (floatingPeaks[i] < amplitude) floatingPeaks[i] = amplitude;
-                        }
-                        int peakHeight = Math.max((int)(floatingPeaks[i] * 25), 1);
-                        context.fill(drawX, bottomY - peakHeight - 2, drawX + barWidth, bottomY - peakHeight - 1, 0xFFFFFFFF);
+                if (cfg.visStyle == SonicPulseConfig.VisualizerStyle.FLOATING_PEAKS) {
+                    if (amplitude >= floatingPeaks[i]) {
+                        floatingPeaks[i] = amplitude;
+                    } else {
+                        floatingPeaks[i] -= 0.005f; 
+                        if (floatingPeaks[i] < amplitude) floatingPeaks[i] = amplitude;
                     }
+                    int peakHeight = Math.max((int)(floatingPeaks[i] * 25), 1);
+                    context.fill(drawX, bottomY - peakHeight - 2, drawX + barWidth, bottomY - peakHeight - 1, 0xFFFFFFFF);
                 }
             }
         }
-        
+
         context.getMatrices().pop();
     }
 }

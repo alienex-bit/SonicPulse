@@ -81,26 +81,17 @@ public class ConfigScreen extends Screen {
                 addDrawableChild(ButtonWidget.builder(Text.literal("Title: " + SonicPulseConfig.COLOR_NAMES[titleColorIndex]), b -> { titleColorIndex = (titleColorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setTitleColor(SonicPulseConfig.PALETTE[titleColorIndex]); refreshWidgets(); }).dimensions(contentX, y + 110, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Bar: " + SonicPulseConfig.COLOR_NAMES[colorIndex]), b -> { colorIndex = (colorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setColor(SonicPulseConfig.PALETTE[colorIndex]); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 110, colW, 20).build());
                 
-                addDrawableChild(ButtonWidget.builder(Text.literal("Top Zone: " + (config.showTopZone ? "ON" : "OFF")), b -> { config.showTopZone = !config.showTopZone; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, y + 135, colW, 20).build());
+                // Element Toggles instead of Zones
+                addDrawableChild(ButtonWidget.builder(Text.literal("Logo: " + (config.showLogo ? "ON" : "OFF")), b -> { config.showLogo = !config.showLogo; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, y + 135, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Style: " + config.visStyle.name().replace("_", " ")), b -> { config.nextVisStyle(); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 135, colW, 20).build());
                 
-                addDrawableChild(ButtonWidget.builder(Text.literal("Mid Zone: " + (config.showMidZone ? "ON" : "OFF")), b -> { config.showMidZone = !config.showMidZone; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, y + 160, colW, 20).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("Bot Zone: " + (config.showBotZone ? "ON" : "OFF")), b -> { config.showBotZone = !config.showBotZone; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 160, colW, 20).build());
+                addDrawableChild(ButtonWidget.builder(Text.literal("Track: " + (config.showTrack ? "ON" : "OFF")), b -> { config.showTrack = !config.showTrack; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, y + 160, colW, 20).build());
+                addDrawableChild(ButtonWidget.builder(Text.literal("Bars: " + (config.showBars ? "ON" : "OFF")), b -> { config.showBars = !config.showBars; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 160, colW, 20).build());
                 break;
-            case 2: // LAYOUT - Contextual based on HUD Mode
-                addDrawableChild(ButtonWidget.builder(Text.literal("Mode: " + config.hudMode.name()), b -> { config.nextHudMode(); refreshWidgets(); }).dimensions(contentX, y + 85, contentW, 20).build());
+            case 2: // LAYOUT - Simplified for the Ribbon
+                addDrawableChild(ButtonWidget.builder(Text.literal("Order: " + config.ribbonLayout.getDisplayName()), b -> { config.nextRibbonLayout(); refreshWidgets(); }).dimensions(contentX, y + 85, contentW, 20).build());
                 
-                if (config.hudMode == SonicPulseConfig.HudMode.CLASSIC) {
-                    addDrawableChild(ButtonWidget.builder(Text.literal("Top Left"), b -> { config.setPos(2, 2); refreshWidgets(); }).dimensions(contentX, y + 110, colW, 20).build());
-                    addDrawableChild(ButtonWidget.builder(Text.literal("Top Right"), b -> { config.setPos(-2, 2); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 110, colW, 20).build());
-                    addDrawableChild(ButtonWidget.builder(Text.literal("Bottom Left"), b -> { config.setPos(2, -2); refreshWidgets(); }).dimensions(contentX, y + 135, colW, 20).build());
-                    addDrawableChild(ButtonWidget.builder(Text.literal("Bottom Right"), b -> { config.setPos(-2, -2); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 135, colW, 20).build());
-                } else {
-                    addDrawableChild(ButtonWidget.builder(Text.literal("Top Edge"), b -> { config.setPos(0, 2); refreshWidgets(); }).dimensions(contentX, y + 110, colW, 20).build());
-                    addDrawableChild(ButtonWidget.builder(Text.literal("Bottom Edge"), b -> { config.setPos(0, -2); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 110, colW, 20).build());
-                }
-                
-                addDrawableChild(new SliderWidget(contentX, y + 160, contentW, 20, Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%"), (config.hudScale - 0.5) / 0.5) { 
+                addDrawableChild(new SliderWidget(contentX, y + 110, contentW, 20, Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%"), (config.hudScale - 0.5) / 0.5) { 
                     @Override protected void updateMessage() { setMessage(Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%")); } 
                     @Override protected void applyValue() { config.hudScale = (float)(0.5 + (value * 0.5)); SonicPulseConfig.save(); } 
                 });
@@ -199,7 +190,7 @@ public class ConfigScreen extends Screen {
         if (currentTab < 3) {
             context.drawBorder(x + (BOX_WIDTH/2) - 80, y + 8, 190, 55, ACTIVE_BORDER);
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("SONICPULSE READY"), x + (BOX_WIDTH/2) + 15, y + 23, 0xFFFF00FF);
-            context.drawCenteredTextWithShadow(textRenderer, Text.literal("§fLook at the edges of your screen"), x + (BOX_WIDTH/2) + 15, y + 38, 0xFFFFFFFF);
+            context.drawCenteredTextWithShadow(textRenderer, Text.literal("§fLook at the top of your screen"), x + (BOX_WIDTH/2) + 15, y + 38, 0xFFFFFFFF);
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("§fto see your LIVE HUD updates!"), x + (BOX_WIDTH/2) + 15, y + 48, 0xFFFFFFFF);
         }
 

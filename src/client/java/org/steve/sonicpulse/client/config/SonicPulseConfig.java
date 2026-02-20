@@ -27,27 +27,38 @@ public class SonicPulseConfig {
     }
 
     public enum VisualizerStyle { SOLID, FLOATING_PEAKS }
-    
-    // NEW: The Master HUD Mode
-    public enum HudMode { CLASSIC, CINEMATIC }
 
-    public HudMode hudMode = HudMode.CLASSIC;
-    public int hudX = 2, hudY = 2; 
+    // NEW: The 6 possible Ribbon permutations
+    public enum RibbonLayout {
+        LOG_TRK_BAR("Logo | Track | Bars"),
+        LOG_BAR_TRK("Logo | Bars | Track"),
+        TRK_LOG_BAR("Track | Logo | Bars"),
+        TRK_BAR_LOG("Track | Bars | Logo"),
+        BAR_LOG_TRK("Bars | Logo | Track"),
+        BAR_TRK_LOG("Bars | Track | Logo");
+
+        private final String displayName;
+        RibbonLayout(String name) { this.displayName = name; }
+        public String getDisplayName() { return displayName; }
+    }
+
     public float hudScale = 1.0f; 
     public int barColor = 0xFF00BFFF; 
     public int titleColor = 0xFFFF00FF;
     public int volume = 50;
     public Skin skin = Skin.DEFAULT;
     public VisualizerStyle visStyle = VisualizerStyle.SOLID;
+    public RibbonLayout ribbonLayout = RibbonLayout.LOG_TRK_BAR;
     public String currentTitle = null;
     public String lastRadioUrl = "";
     public String localMusicPath = "";
     public List<HistoryEntry> history = new ArrayList<>();
     public boolean hudVisible = true;
     
-    public boolean showTopZone = true;
-    public boolean showMidZone = true;
-    public boolean showBotZone = true;
+    // Horizontal Element Toggles
+    public boolean showLogo = true;
+    public boolean showTrack = true;
+    public boolean showBars = true;
 
     public static final int[] PALETTE = {
         0x00BFFF, 0x00CED1, 0x00FFC6, 0x32CD32, 0x7FFF00, 0xFFD300, 
@@ -78,7 +89,6 @@ public class SonicPulseConfig {
         return history.stream().filter(e -> e.favorite).toList();
     }
 
-    public void setPos(int x, int y) { hudX = x; hudY = y; save(); }
     public void setColor(int c) { barColor = c; save(); }
     public void setTitleColor(int c) { titleColor = c; save(); }
     
@@ -94,10 +104,9 @@ public class SonicPulseConfig {
         save();
     }
 
-    // Cycles the Master HUD Mode
-    public void nextHudMode() {
-        HudMode[] m = HudMode.values();
-        hudMode = m[(hudMode.ordinal() + 1) % m.length];
+    public void nextRibbonLayout() {
+        RibbonLayout[] r = RibbonLayout.values();
+        ribbonLayout = r[(ribbonLayout.ordinal() + 1) % r.length];
         save();
     }
 
