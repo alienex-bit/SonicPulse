@@ -44,7 +44,6 @@ public class SonicPulseHud implements HudRenderCallback {
         int ribbonHeight = 35; 
         
         context.getMatrices().push();
-        // Fixed exactly to the top of the screen
         context.getMatrices().translate(0.0f, 0.0f, 0.0f);
         context.getMatrices().scale(scale, scale, 1.0f);
         
@@ -83,17 +82,30 @@ public class SonicPulseHud implements HudRenderCallback {
         if (cfg.showTrack) {
             String trackName = (cfg.currentTitle != null) ? cfg.currentTitle : track.getInfo().title;
             if (trackName != null) {
-                trackName = trackName.replace("|", " - "); // Flatten title for the ribbon
+                trackName = trackName.replace("|", " - "); 
                 int textW = textRenderer.getWidth(trackName);
                 
-                // Smart Truncation: Don't let a huge title crash into the side elements
                 int maxW = (ribbonWidth / 3) - 20;
+                int drawX;
+
                 if (textW > maxW) {
-                    trackName = textRenderer.trimToWidth(trackName, maxW - textRenderer.getWidth("...")) + "...";
-                    textW = textRenderer.getWidth(trackName);
+                    // TICKER-TAPE SCROLLING EFFECT
+                    String spacer = "   •   ";
+                    String marquee = trackName + spacer + trackName + spacer + trackName;
+                    
+                    // Moves 1 character every 150 milliseconds
+                    int totalLen = trackName.length() + spacer.length();
+                    int offset = (int)((System.currentTimeMillis() / 150) % totalLen);
+                    
+                    String scrolled = marquee.substring(offset);
+                    trackName = textRenderer.trimToWidth(scrolled, maxW);
+                    
+                    // Lock X position so it doesn't jitter left/right as characters change width
+                    drawX = (trackSlot == 0) ? leftX : ((trackSlot == 1) ? centerX - (maxW / 2) : rightX - maxW);
+                } else {
+                    drawX = (trackSlot == 0) ? leftX : ((trackSlot == 1) ? centerX - (textW / 2) : rightX - textW);
                 }
 
-                int drawX = (trackSlot == 0) ? leftX : ((trackSlot == 1) ? centerX - (textW / 2) : rightX - textW);
                 context.drawText(textRenderer, Text.literal(trackName), drawX, 14, 0xFFFFFFFF, false);
             }
         }

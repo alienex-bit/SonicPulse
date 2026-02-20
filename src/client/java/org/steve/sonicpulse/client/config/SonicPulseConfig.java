@@ -77,18 +77,23 @@ public class SonicPulseConfig {
     }
 
     public void addHistory(String type, String label, String url) {
-        // BUG FIX: Remember if it was already a favorite before we recreate the entry!
+        // BUG FIX: Look up the URL to see if it already exists in history.
+        // If it does, keep the user's custom label and star!
         boolean wasFav = false;
+        String existingLabel = null;
         for (HistoryEntry e : history) {
             if (e.url.equals(url)) {
                 wasFav = e.favorite;
+                existingLabel = e.label;
                 break;
             }
         }
         
+        String finalLabel = (existingLabel != null) ? existingLabel : label;
+        
         history.removeIf(e -> e.url.equals(url));
-        HistoryEntry newEntry = new HistoryEntry(type, label, url);
-        newEntry.favorite = wasFav; // Re-apply the star if it had one
+        HistoryEntry newEntry = new HistoryEntry(type, finalLabel, url);
+        newEntry.favorite = wasFav;
         
         history.add(0, newEntry);
         if (history.size() > 50) history.remove(history.size() - 1);

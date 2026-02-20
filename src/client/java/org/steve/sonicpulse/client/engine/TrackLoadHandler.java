@@ -23,19 +23,27 @@ public class TrackLoadHandler implements AudioLoadResultHandler {
         
         String title = track.getInfo().title;
         String author = track.getInfo().author;
+        String uri = track.getInfo().uri;
         
         String displayTitle = "YouTube Track";
         if (title != null && !title.equalsIgnoreCase("stream") && !title.toLowerCase().contains("unknown")) {
-            // Use | as a separator so the HUD can split Artist and Song into two lines
             if (author != null && !author.equalsIgnoreCase("unknown") && !author.isEmpty()) {
-                displayTitle = author + "|" + title;
+                displayTitle = author + " - " + title;
             } else {
                 displayTitle = title;
             }
         }
         
+        // BUG FIX: Check if the user has a custom name saved in history for this track!
+        for (SonicPulseConfig.HistoryEntry e : SonicPulseConfig.get().history) {
+            if (e.url.equals(uri)) {
+                displayTitle = e.label;
+                break;
+            }
+        }
+        
         SonicPulseConfig.get().currentTitle = displayTitle;
-        SonicPulseConfig.get().addHistory("Track", displayTitle.replace("|", " - "), track.getInfo().uri);
+        SonicPulseConfig.get().addHistory("Track", displayTitle, uri);
     }
 
     @Override
@@ -46,9 +54,18 @@ public class TrackLoadHandler implements AudioLoadResultHandler {
             player.playTrack(firstTrack);
             
             String title = firstTrack.getInfo().title;
+            String uri = firstTrack.getInfo().uri;
+            
+            for (SonicPulseConfig.HistoryEntry e : SonicPulseConfig.get().history) {
+                if (e.url.equals(uri)) {
+                    title = e.label;
+                    break;
+                }
+            }
+            
             if (title != null && !title.equalsIgnoreCase("stream")) {
                 SonicPulseConfig.get().currentTitle = title;
-                SonicPulseConfig.get().addHistory("Playlist", title, firstTrack.getInfo().uri);
+                SonicPulseConfig.get().addHistory("Playlist", title, uri);
             }
         }
     }

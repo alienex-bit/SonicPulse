@@ -108,7 +108,20 @@ public class ConfigScreen extends Screen {
                     if (renamingIndex == hIdx) {
                         renameField = new TextFieldWidget(textRenderer, contentX, rowY, contentW - 25, 20, Text.literal("Rename"));
                         renameField.setText(e.label); addSelectableChild(renameField);
-                        addDrawableChild(ButtonWidget.builder(Text.literal("✔"), b -> { e.label = renameField.getText(); renamingIndex = -1; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + contentW - 20, rowY, 20, 20).build());
+                        addDrawableChild(ButtonWidget.builder(Text.literal("✔"), b -> { 
+                            e.label = renameField.getText();
+                            
+                            // BUG FIX: Instant HUD Update
+                            // If the track we are renaming is currently playing, update the live title immediately
+                            var playing = SonicPulseClient.getEngine().getPlayer().getPlayingTrack();
+                            if (playing != null && playing.getInfo().uri.equals(e.url)) {
+                                config.currentTitle = e.label;
+                            }
+                            
+                            renamingIndex = -1; 
+                            SonicPulseConfig.save(); 
+                            refreshWidgets(); 
+                        }).dimensions(contentX + contentW - 20, rowY, 20, 20).build());
                     } else {
                         addDrawableChild(ButtonWidget.builder(Text.literal(e.label), b -> { config.currentTitle = e.label; SonicPulseClient.getEngine().stop(); SonicPulseClient.getEngine().playTrack(e.url); refreshWidgets(); }).dimensions(contentX, rowY, contentW - 85, 20).build());
                         addDrawableChild(ButtonWidget.builder(Text.literal(e.favorite ? "§e★" : "☆"), b -> { e.favorite = !e.favorite; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + contentW - 82, rowY, 20, 20).build());
@@ -187,7 +200,6 @@ public class ConfigScreen extends Screen {
         boolean paused = SonicPulseClient.getEngine().getPlayer().isPaused();
 
         if (currentTab == 0) {
-            // BUG FIX: Title added here directly above the URL box!
             context.drawText(textRenderer, Text.literal("Enter audio URL to stream:"), contentX, y + 23, 0xFFFFFFFF, false);
             
             int bW = 60, bGrpW = (bW * 3) + 10, gX = contentX + (contentW - bGrpW) / 2;
