@@ -27,6 +27,8 @@ public class SonicPulseConfig {
     }
 
     public enum VisualizerStyle { SOLID, FLOATING_PEAKS }
+    
+    public enum BgEffect { OFF, BASS_PULSE, RGB_AURA }
 
     public enum RibbonLayout {
         LOG_TRK_BAR("Logo | Track | Bars"),
@@ -47,6 +49,7 @@ public class SonicPulseConfig {
     public int volume = 50;
     public Skin skin = Skin.DEFAULT;
     public VisualizerStyle visStyle = VisualizerStyle.SOLID;
+    public BgEffect bgEffect = BgEffect.OFF;
     public RibbonLayout ribbonLayout = RibbonLayout.LOG_TRK_BAR;
     public String currentTitle = null;
     public String lastRadioUrl = "";
@@ -77,8 +80,6 @@ public class SonicPulseConfig {
     }
 
     public void addHistory(String type, String label, String url) {
-        // BUG FIX: Look up the URL to see if it already exists in history.
-        // If it does, keep the user's custom label and star!
         boolean wasFav = false;
         String existingLabel = null;
         for (HistoryEntry e : history) {
@@ -90,7 +91,6 @@ public class SonicPulseConfig {
         }
         
         String finalLabel = (existingLabel != null) ? existingLabel : label;
-        
         history.removeIf(e -> e.url.equals(url));
         HistoryEntry newEntry = new HistoryEntry(type, finalLabel, url);
         newEntry.favorite = wasFav;
@@ -116,6 +116,12 @@ public class SonicPulseConfig {
     public void nextVisStyle() {
         VisualizerStyle[] v = VisualizerStyle.values();
         visStyle = v[(visStyle.ordinal() + 1) % v.length];
+        save();
+    }
+    
+    public void nextBgEffect() {
+        BgEffect[] v = BgEffect.values();
+        bgEffect = v[(bgEffect.ordinal() + 1) % v.length];
         save();
     }
 

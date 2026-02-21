@@ -19,24 +19,18 @@ import java.io.File;
 import java.util.Scanner;
 
 public class ConfigScreen extends Screen {
-    private static final int BOX_WIDTH = 360, BOX_HEIGHT = 220;
-    private static final int SIDEBAR_WIDTH = 75;
+    private static final int BOX_WIDTH = 360, BOX_HEIGHT = 220, SIDEBAR_WIDTH = 75, ACTIVE_BORDER = 0xFFFF00FF;
     private TextFieldWidget urlField, radioUrlField, renameField;
     private final SonicPulseConfig config = SonicPulseConfig.get();
     private int currentTab = 0, colorIndex = 0, titleColorIndex = 0, radioScrollOffset = 0, historyScrollOffset = 0, favScrollOffset = 0, localScrollOffset = 0, renamingIndex = -1;
     private final List<String[]> radioStreams = new ArrayList<>();
     private final List<File> localFiles = new ArrayList<>();
-    private static final int ACTIVE_BORDER = 0xFFFF00FF; 
     private final SonicPulseHud hudRenderer = new SonicPulseHud();
     private boolean isShuffling = false;
     private int recentCount = 0;
 
     public ConfigScreen() { 
         super(Text.literal("SonicPulse Config")); 
-        updatePaletteIndices();
-    }
-
-    private void updatePaletteIndices() {
         for(int i=0; i<SonicPulseConfig.PALETTE.length; i++) { 
             if((0xFF000000 | SonicPulseConfig.PALETTE[i]) == (0xFF000000 | config.barColor)) colorIndex=i; 
             if((0xFF000000 | SonicPulseConfig.PALETTE[i]) == (0xFF000000 | config.titleColor)) titleColorIndex=i;
@@ -91,8 +85,7 @@ public class ConfigScreen extends Screen {
         switch (currentTab) {
             case 0: // REMOTE
                 urlField = new TextFieldWidget(textRenderer, contentX, y + 55, contentW, 20, Text.literal("URL"));
-                urlField.setMaxLength(1024);
-                addSelectableChild(urlField);
+                urlField.setMaxLength(1024); addSelectableChild(urlField);
                 addDrawableChild(ButtonWidget.builder(Text.literal("LOAD & PLAY URL"), b -> { 
                     if(!urlField.getText().isEmpty()) { isShuffling = false; SonicPulseClient.getEngine().playTrack(urlField.getText()); refreshWidgets(); }
                 }).dimensions(contentX, y + 80, contentW, 20).build());
@@ -109,15 +102,13 @@ public class ConfigScreen extends Screen {
                 recentCount = recents.size();
                 
                 if (recentCount > 0) {
-                    int rY = y + 138;
                     for (int i = 0; i < recentCount; i++) {
                         SonicPulseConfig.HistoryEntry e = recents.get(i);
                         int bx = contentX + (i % 2) * (contentW / 2 + 2);
-                        int by = rY + (i / 2) * 22;
                         int bw = (contentW / 2) - 2;
                         addDrawableChild(ButtonWidget.builder(Text.literal("▶ " + textRenderer.trimToWidth(e.label, bw - 15)), b -> { 
                             isShuffling = false; config.currentTitle = e.label; SonicPulseClient.getEngine().playTrack(e.url); refreshWidgets(); 
-                        }).dimensions(bx, by, bw, 20).tooltip(Tooltip.of(Text.literal("Track: " + e.label + "\nURL: " + e.url))).build());
+                        }).dimensions(bx, y + 138 + (i / 2) * 22, bw, 20).tooltip(Tooltip.of(Text.literal("Track: " + e.label + "\nURL: " + e.url))).build());
                     }
                 }
                 break;
@@ -126,6 +117,10 @@ public class ConfigScreen extends Screen {
                 addDrawableChild(ButtonWidget.builder(Text.literal("Skin: " + config.skin.getName()), b -> { config.nextSkin(); refreshWidgets(); }).dimensions(contentX, y + 75, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Logo: " + (config.showLogo ? "ON" : "OFF")), b -> { config.showLogo = !config.showLogo; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, y + 100, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Track: " + (config.showTrack ? "ON" : "OFF")), b -> { config.showTrack = !config.showTrack; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, y + 125, colW, 20).build());
+                
+                // NEW: Background Effects Button
+                addDrawableChild(ButtonWidget.builder(Text.literal("BG: " + config.bgEffect.name().replace("_", " ")), b -> { config.nextBgEffect(); refreshWidgets(); }).dimensions(contentX, y + 150, colW, 20).build());
+                
                 addDrawableChild(ButtonWidget.builder(Text.literal("Style: " + config.visStyle.name().replace("_", " ")), b -> { config.nextVisStyle(); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 50, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Bar: " + SonicPulseConfig.COLOR_NAMES[colorIndex]), b -> { colorIndex = (colorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setColor(SonicPulseConfig.PALETTE[colorIndex]); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 75, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Hud Title: " + SonicPulseConfig.COLOR_NAMES[titleColorIndex]), b -> { titleColorIndex = (titleColorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setTitleColor(SonicPulseConfig.PALETTE[titleColorIndex]); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 100, colW, 20).build());
@@ -303,7 +298,6 @@ public class ConfigScreen extends Screen {
         if (!playing) context.fill(headerX + 44, y + 20, headerX + 64, y + 22, 0xFFFF0000); 
         if (isShuffling) context.fill(headerX + 66, y + 20, headerX + 86, y + 22, 0xFF00FFFF); 
 
-        // --- THE DYNAMIC PLATFORM TAGS ---
         if (playing) {
             String uri = track.getInfo().uri.toLowerCase();
             boolean isLocal = uri.startsWith("file") || uri.matches("^[a-zA-Z]:\\\\.*");
@@ -313,16 +307,16 @@ public class ConfigScreen extends Screen {
 
             if (isLocal) {
                 tag = "[ 📁 LOCAL ]";
-                tagColor = 0xFFFF00FF; // Magenta
+                tagColor = 0xFFFF00FF;
             } else if (track.getInfo().isStream) {
-                if (uri.contains("twitch.tv")) { tag = "[ 📺 TWITCH ]"; tagColor = 0xFFA020F0; } // Purple
-                else if (uri.contains("youtube.com") || uri.contains("youtu.be")) { tag = "[ 🔴 YT LIVE ]"; tagColor = 0xFFFF0000; } // Red
-                else { tag = "[ 📻 STREAM ]"; tagColor = 0xFF00FFFF; } // Cyan
+                if (uri.contains("twitch.tv")) { tag = "[ 📺 TWITCH ]"; tagColor = 0xFFA020F0; }
+                else if (uri.contains("youtube.com") || uri.contains("youtu.be")) { tag = "[ 🔴 YT LIVE ]"; tagColor = 0xFFFF0000; }
+                else { tag = "[ 📻 STREAM ]"; tagColor = 0xFF00FFFF; }
             } else {
-                if (uri.contains("youtube.com") || uri.contains("youtu.be")) { tag = "[ ► YOUTUBE ]"; tagColor = 0xFFFF0000; } // Red
-                else if (uri.contains("soundcloud.com")) { tag = "[ ☁ SOUNDCLOUD ]"; tagColor = 0xFFFFA500; } // Orange
-                else if (uri.contains("bandcamp.com")) { tag = "[ 🎧 BANDCAMP ]"; tagColor = 0xFF00CED1; } // Teal
-                else if (uri.contains("vimeo.com")) { tag = "[ 🎬 VIMEO ]"; tagColor = 0xFF1E90FF; } // Blue
+                if (uri.contains("youtube.com") || uri.contains("youtu.be")) { tag = "[ ► YOUTUBE ]"; tagColor = 0xFFFF0000; }
+                else if (uri.contains("soundcloud.com")) { tag = "[ ☁ SOUNDCLOUD ]"; tagColor = 0xFFFFA500; }
+                else if (uri.contains("bandcamp.com")) { tag = "[ 🎧 BANDCAMP ]"; tagColor = 0xFF00CED1; }
+                else if (uri.contains("vimeo.com")) { tag = "[ 🎬 VIMEO ]"; tagColor = 0xFF1E90FF; }
             }
 
             String timeStr = "";
@@ -351,7 +345,8 @@ public class ConfigScreen extends Screen {
         }
         
         if (currentTab == 1) {
-            context.fill(contentX + (contentW / 2), y + 45, contentX + (contentW / 2) + 1, y + 145, 0x44FFFFFF);
+            // Extended the inner shaded box down slightly to comfortably hold the new button
+            context.fill(contentX + (contentW / 2), y + 45, contentX + (contentW / 2) + 1, y + 170, 0x44FFFFFF);
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("HUD THEME"), contentX + (contentW / 4), y + 36, 0xFFFF00FF);
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("BAR VISUALS"), contentX + (contentW / 4) * 3, y + 36, 0xFFFF00FF);
         }

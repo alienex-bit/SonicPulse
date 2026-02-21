@@ -9,11 +9,9 @@ import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.text.Text;
 import org.steve.sonicpulse.client.SonicPulseClient;
 import org.steve.sonicpulse.client.config.SonicPulseConfig;
-import org.steve.sonicpulse.client.screen.ConfigScreen;
 
 public class SonicPulseHud implements HudRenderCallback {
     
-    // Memory for the floating peaks
     private final float[] floatingPeaks = new float[16];
 
     @Override
@@ -30,7 +28,6 @@ public class SonicPulseHud implements HudRenderCallback {
 
         if (!cfg.hudVisible) return;
         
-        // Prevent normal HUD rendering if a screen is open, UNLESS it's our explicit live foreground override
         if (!isPreview && client.currentScreen != null) return;
 
         AudioTrack track = SonicPulseClient.getEngine().getPlayer().getPlayingTrack();
@@ -39,7 +36,6 @@ public class SonicPulseHud implements HudRenderCallback {
         int screenW = client.getWindow().getScaledWidth();
         float scale = cfg.hudScale;
 
-        // The Cinematic Ribbon logic
         int ribbonWidth = (int)(screenW / scale);
         int ribbonHeight = 35; 
         
@@ -47,11 +43,42 @@ public class SonicPulseHud implements HudRenderCallback {
         context.getMatrices().translate(0.0f, 0.0f, 0.0f);
         context.getMatrices().scale(scale, scale, 1.0f);
         
-        // Draw a flat full-width box with a line border
+        // 1. Draw standard background
         context.fill(0, 0, ribbonWidth, ribbonHeight, cfg.skin.getBgColor());
+
+        // 2. --- REACTIVE BACKGROUND EFFECTS ---
+        float[] vData = SonicPulseClient.getEngine().getVisualizerData();
+        if (vData != null && vData.length >= 16) {
+            if (cfg.bgEffect == SonicPulseConfig.BgEffect.BASS_PULSE) {
+                // Isolate the deep bass (first 3 bins) and square it for a punchy curve
+                float bass = (vData[0] + vData[1] + vData[2]) / 3.0f;
+                float intensity = bass * bass * 1.5f; 
+                int alpha = (int)(Math.min(intensity, 1.0f) * 120); // Cap alpha at 120 so it's not blinding
+                
+                if (alpha > 5) {
+                    int effectColor = (alpha << 24) | (cfg.barColor & 0xFFFFFF);
+                    context.fill(0, 0, ribbonWidth, ribbonHeight, effectColor);
+                }
+            } else if (cfg.bgEffect == SonicPulseConfig.BgEffect.RGB_AURA) {
+                // Calculate average volume across all frequencies
+                float vol = 0;
+                for (int i = 0; i < 16; i++) vol += vData[i];
+                vol /= 16.0f;
+                
+                // Slow hue cycle (1 full rotation every 6 seconds)
+                float hue = (System.currentTimeMillis() % 6000) / 6000.0f;
+                int rgb = java.awt.Color.HSBtoRGB(hue, 0.8f, 1.0f);
+                
+                // Base faint glow (20) + volume spike
+                int alpha = 20 + (int)(Math.min(vol * 2.0f, 1.0f) * 100);
+                int effectColor = (alpha << 24) | (rgb & 0xFFFFFF);
+                context.fill(0, 0, ribbonWidth, ribbonHeight, effectColor);
+            }
+        }
+
+        // 3. Draw border line over the background
         context.fill(0, ribbonHeight - 1, ribbonWidth, ribbonHeight, cfg.skin.getBorderColor());
 
-        // Determine Slot Positions dynamically
         int logoSlot = 0; 
         int trackSlot = 1;
         int barsSlot = 2;
@@ -69,7 +96,6 @@ public class SonicPulseHud implements HudRenderCallback {
         int centerX = ribbonWidth / 2;
         int rightX = ribbonWidth - 10;
 
-        // --- Render Logo ---
         if (cfg.showLogo) {
             int titleColor = cfg.titleColor | 0xFF000000;
             String logoTxt = "SONICPULSE ♫";
@@ -78,7 +104,6 @@ public class SonicPulseHud implements HudRenderCallback {
             context.drawText(textRenderer, Text.literal(logoTxt), drawX, 14, titleColor, false);
         }
 
-        // --- Render Track ---
         if (cfg.showTrack) {
             String trackName = (cfg.currentTitle != null) ? cfg.currentTitle : track.getInfo().title;
             if (trackName != null) {
@@ -89,31 +114,22 @@ public class SonicPulseHud implements HudRenderCallback {
                 int drawX;
 
                 if (textW > maxW) {
-                    // TICKER-TAPE SCROLLING EFFECT
                     String spacer = "   •   ";
                     String marquee = trackName + spacer + trackName + spacer + trackName;
-                    
-                    // Moves 1 character every 150 milliseconds
                     int totalLen = trackName.length() + spacer.length();
                     int offset = (int)((System.currentTimeMillis() / 150) % totalLen);
-                    
                     String scrolled = marquee.substring(offset);
                     trackName = textRenderer.trimToWidth(scrolled, maxW);
-                    
-                    // Lock X position so it doesn't jitter left/right as characters change width
                     drawX = (trackSlot == 0) ? leftX : ((trackSlot == 1) ? centerX - (maxW / 2) : rightX - maxW);
                 } else {
                     drawX = (trackSlot == 0) ? leftX : ((trackSlot == 1) ? centerX - (textW / 2) : rightX - textW);
                 }
-
                 context.drawText(textRenderer, Text.literal(trackName), drawX, 14, 0xFFFFFFFF, false);
             }
         }
 
-        // --- Render Bars ---
         if (cfg.showBars) {
             int barColor = cfg.barColor | 0xFF000000;
-            float[] vData = SonicPulseClient.getEngine().getVisualizerData();
             int barsCount = 16;
             int barWidth = 6;
             int barSpacing = 2;
