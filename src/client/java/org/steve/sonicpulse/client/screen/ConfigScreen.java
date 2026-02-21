@@ -19,18 +19,24 @@ import java.io.File;
 import java.util.Scanner;
 
 public class ConfigScreen extends Screen {
-    private static final int BOX_WIDTH = 360, BOX_HEIGHT = 220, SIDEBAR_WIDTH = 75, ACTIVE_BORDER = 0xFFFF00FF;
+    private static final int BOX_WIDTH = 360, BOX_HEIGHT = 220;
+    private static final int SIDEBAR_WIDTH = 75;
     private TextFieldWidget urlField, radioUrlField, renameField;
     private final SonicPulseConfig config = SonicPulseConfig.get();
     private int currentTab = 0, colorIndex = 0, titleColorIndex = 0, radioScrollOffset = 0, historyScrollOffset = 0, favScrollOffset = 0, localScrollOffset = 0, renamingIndex = -1;
     private final List<String[]> radioStreams = new ArrayList<>();
     private final List<File> localFiles = new ArrayList<>();
+    private static final int ACTIVE_BORDER = 0xFFFF00FF; 
     private final SonicPulseHud hudRenderer = new SonicPulseHud();
     private boolean isShuffling = false;
     private int recentCount = 0;
 
     public ConfigScreen() { 
         super(Text.literal("SonicPulse Config")); 
+        updatePaletteIndices();
+    }
+
+    private void updatePaletteIndices() {
         for(int i=0; i<SonicPulseConfig.PALETTE.length; i++) { 
             if((0xFF000000 | SonicPulseConfig.PALETTE[i]) == (0xFF000000 | config.barColor)) colorIndex=i; 
             if((0xFF000000 | SonicPulseConfig.PALETTE[i]) == (0xFF000000 | config.titleColor)) titleColorIndex=i;
@@ -85,7 +91,8 @@ public class ConfigScreen extends Screen {
         switch (currentTab) {
             case 0: // REMOTE
                 urlField = new TextFieldWidget(textRenderer, contentX, y + 55, contentW, 20, Text.literal("URL"));
-                urlField.setMaxLength(1024); addSelectableChild(urlField);
+                urlField.setMaxLength(1024);
+                addSelectableChild(urlField);
                 addDrawableChild(ButtonWidget.builder(Text.literal("LOAD & PLAY URL"), b -> { 
                     if(!urlField.getText().isEmpty()) { isShuffling = false; SonicPulseClient.getEngine().playTrack(urlField.getText()); refreshWidgets(); }
                 }).dimensions(contentX, y + 80, contentW, 20).build());
@@ -102,13 +109,15 @@ public class ConfigScreen extends Screen {
                 recentCount = recents.size();
                 
                 if (recentCount > 0) {
+                    int rY = y + 138;
                     for (int i = 0; i < recentCount; i++) {
                         SonicPulseConfig.HistoryEntry e = recents.get(i);
                         int bx = contentX + (i % 2) * (contentW / 2 + 2);
+                        int by = rY + (i / 2) * 22;
                         int bw = (contentW / 2) - 2;
                         addDrawableChild(ButtonWidget.builder(Text.literal("▶ " + textRenderer.trimToWidth(e.label, bw - 15)), b -> { 
                             isShuffling = false; config.currentTitle = e.label; SonicPulseClient.getEngine().playTrack(e.url); refreshWidgets(); 
-                        }).dimensions(bx, y + 138 + (i / 2) * 22, bw, 20).tooltip(Tooltip.of(Text.literal("Track: " + e.label + "\nURL: " + e.url))).build());
+                        }).dimensions(bx, by, bw, 20).tooltip(Tooltip.of(Text.literal("Track: " + e.label + "\nURL: " + e.url))).build());
                     }
                 }
                 break;
@@ -199,10 +208,13 @@ public class ConfigScreen extends Screen {
                 addDrawableChild(ButtonWidget.builder(Text.literal("SHUFFLE ALL"), b -> { if (!localFiles.isEmpty()) { List<File> s = new ArrayList<>(localFiles); Collections.shuffle(s); File f = s.get(0); config.currentTitle = f.getName(); SonicPulseClient.getEngine().playTrack(f.getAbsolutePath()); isShuffling = false; refreshWidgets(); } }).dimensions(contentX + colW + 10, y + 32, colW, 18).build());
                 for (int i = localScrollOffset; i < Math.min(localFiles.size(), localScrollOffset + 7); i++) {
                     File f = localFiles.get(i);
-                    addDrawableChild(ButtonWidget.builder(Text.literal("♫ " + f.getName()), b -> { isShuffling = false; config.currentTitle = f.getName(); SonicPulseClient.getEngine().playTrack(f.getAbsolutePath()); refreshWidgets(); }).dimensions(contentX, y + 55 + ((i - localScrollOffset) * rowH), contentW - 15, rowH).build());
+                    int rowY = y + 55 + ((i - localScrollOffset) * rowH);
+                    addDrawableChild(ButtonWidget.builder(Text.literal("♫ " + f.getName()), b -> { isShuffling = false; config.currentTitle = f.getName(); SonicPulseClient.getEngine().playTrack(f.getAbsolutePath()); refreshWidgets(); }).dimensions(contentX, rowY, contentW - 15, rowH).build());
                 }
                 if (localScrollOffset > 0) addDrawableChild(ButtonWidget.builder(Text.literal("▲"), b -> { localScrollOffset--; refreshWidgets(); }).dimensions(contentX + contentW - 12, y + 55, 12, 18).build());
                 if (localFiles.size() > localScrollOffset + 7) addDrawableChild(ButtonWidget.builder(Text.literal("▼"), b -> { localScrollOffset++; refreshWidgets(); }).dimensions(contentX + contentW - 12, y + 55 + 6 * rowH, 12, 18).build());
+                break;
+            case 7: // ABOUT
                 break;
         }
     }
@@ -223,18 +235,15 @@ public class ConfigScreen extends Screen {
         }
     }
 
-    // --- SMART RADIO PARSER ---
     private void loadRadioM3U(String url) {
         radioStreams.clear();
         new Thread(() -> { 
             try { 
                 String lowerUrl = url.toLowerCase();
-                // Bypass playlist parsing for direct streams and HLS video files
                 if (!lowerUrl.endsWith(".m3u") && !lowerUrl.endsWith(".pls") || lowerUrl.endsWith(".m3u8")) {
                     String display = url.replaceFirst("^(http[s]?://www\\.|http[s]?://)", "");
                     radioStreams.add(new String[]{display, url});
                 } else {
-                    // Normal M3U Text Parsing
                     java.net.URL u = new java.net.URI(url).toURL(); 
                     java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(u.openStream())); 
                     String l, lt = null; 
@@ -265,7 +274,8 @@ public class ConfigScreen extends Screen {
 
     @Override public void render(DrawContext context, int mx, int my, float d) {
         int x = (width - BOX_WIDTH) / 2, y = (height - BOX_HEIGHT) / 2;
-        int contentX = x + SIDEBAR_WIDTH + 10, contentW = BOX_WIDTH - SIDEBAR_WIDTH - 20;
+        int contentX = x + SIDEBAR_WIDTH + 10;
+        int contentW = BOX_WIDTH - SIDEBAR_WIDTH - 20;
 
         if (currentTab == 3) {
             for (int i = 0; i < this.children().size(); i++) {
@@ -293,10 +303,28 @@ public class ConfigScreen extends Screen {
         if (!playing) context.fill(headerX + 44, y + 20, headerX + 64, y + 22, 0xFFFF0000); 
         if (isShuffling) context.fill(headerX + 66, y + 20, headerX + 86, y + 22, 0xFF00FFFF); 
 
+        // --- THE DYNAMIC PLATFORM TAGS ---
         if (playing) {
-            boolean isLocal = track.getInfo().uri.startsWith("file") || track.getInfo().uri.matches("^[a-zA-Z]:\\\\.*");
-            String tag = track.getInfo().isStream ? "[ STREAM ]" : (isLocal ? "[ LOCAL ]" : "[ YOUTUBE ]");
-            int tagColor = track.getInfo().isStream ? 0xFF00FFFF : (isLocal ? 0xFFFF00FF : 0xFFFF0000);
+            String uri = track.getInfo().uri.toLowerCase();
+            boolean isLocal = uri.startsWith("file") || uri.matches("^[a-zA-Z]:\\\\.*");
+            
+            String tag = "[ 🌐 WEB AUDIO ]";
+            int tagColor = 0xFF00FFFF;
+
+            if (isLocal) {
+                tag = "[ 📁 LOCAL ]";
+                tagColor = 0xFFFF00FF; // Magenta
+            } else if (track.getInfo().isStream) {
+                if (uri.contains("twitch.tv")) { tag = "[ 📺 TWITCH ]"; tagColor = 0xFFA020F0; } // Purple
+                else if (uri.contains("youtube.com") || uri.contains("youtu.be")) { tag = "[ 🔴 YT LIVE ]"; tagColor = 0xFFFF0000; } // Red
+                else { tag = "[ 📻 STREAM ]"; tagColor = 0xFF00FFFF; } // Cyan
+            } else {
+                if (uri.contains("youtube.com") || uri.contains("youtu.be")) { tag = "[ ► YOUTUBE ]"; tagColor = 0xFFFF0000; } // Red
+                else if (uri.contains("soundcloud.com")) { tag = "[ ☁ SOUNDCLOUD ]"; tagColor = 0xFFFFA500; } // Orange
+                else if (uri.contains("bandcamp.com")) { tag = "[ 🎧 BANDCAMP ]"; tagColor = 0xFF00CED1; } // Teal
+                else if (uri.contains("vimeo.com")) { tag = "[ 🎬 VIMEO ]"; tagColor = 0xFF1E90FF; } // Blue
+            }
+
             String timeStr = "";
             if (!track.getInfo().isStream) {
                 long pos = track.getPosition() / 1000, dur = track.getDuration() / 1000;

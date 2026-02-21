@@ -3,7 +3,12 @@ package org.steve.sonicpulse.client.engine;
 import com.sedmelluq.discord.lavaplayer.format.StandardAudioDataFormats;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
 import com.sedmelluq.discord.lavaplayer.player.DefaultAudioPlayerManager;
-import com.sedmelluq.discord.lavaplayer.source.AudioSourceManagers;
+import com.sedmelluq.discord.lavaplayer.source.bandcamp.BandcampAudioSourceManager;
+import com.sedmelluq.discord.lavaplayer.source.http.HttpAudioSourceManager;
+import com.sedmelluq.discord.lavaplayer.source.local.LocalAudioSourceManager;
+import com.sedmelluq.discord.lavaplayer.source.soundcloud.SoundCloudAudioSourceManager;
+import com.sedmelluq.discord.lavaplayer.source.twitch.TwitchStreamAudioSourceManager;
+import com.sedmelluq.discord.lavaplayer.source.vimeo.VimeoAudioSourceManager;
 import dev.lavalink.youtube.YoutubeAudioSourceManager;
 
 public class SonicPulseEngine {
@@ -15,14 +20,24 @@ public class SonicPulseEngine {
     public SonicPulseEngine() {
         manager.getConfiguration().setOutputFormat(StandardAudioDataFormats.COMMON_PCM_S16_LE);
         
-        // Register the robust YouTube source
-        YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager();
-        manager.registerSourceManager(youtube);
+        // --- BUG FIX: THE ROUTING CONFLICT ---
+        // We manually register our source managers to prevent the old, broken
+        // built-in YouTube manager from overriding our custom Lavalink one!
         
-        AudioSourceManagers.registerRemoteSources(manager);
+        // 1. Robust Custom YouTube Manager
+        manager.registerSourceManager(new YoutubeAudioSourceManager());
         
-        // BUG FIX: Explicitly register Local Sources so the engine can play local mp3/wav files!
-        AudioSourceManagers.registerLocalSource(manager);
+        // 2. Explicitly register the Twitch Manager
+        manager.registerSourceManager(new TwitchStreamAudioSourceManager());
+        
+        // 3. Register the rest of the web sources manually
+        manager.registerSourceManager(SoundCloudAudioSourceManager.createDefault());
+        manager.registerSourceManager(new BandcampAudioSourceManager());
+        manager.registerSourceManager(new VimeoAudioSourceManager());
+        manager.registerSourceManager(new HttpAudioSourceManager());
+        
+        // 4. Register Local Sources for mp3/wav files
+        manager.registerSourceManager(new LocalAudioSourceManager());
         
         player = manager.createPlayer();
         output = new AudioOutput(player);
