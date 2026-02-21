@@ -19,24 +19,18 @@ import java.io.File;
 import java.util.Scanner;
 
 public class ConfigScreen extends Screen {
-    private static final int BOX_WIDTH = 360, BOX_HEIGHT = 220;
-    private static final int SIDEBAR_WIDTH = 75;
+    private static final int BOX_WIDTH = 360, BOX_HEIGHT = 220, SIDEBAR_WIDTH = 75, ACTIVE_BORDER = 0xFFFF00FF;
     private TextFieldWidget urlField, radioUrlField, renameField;
     private final SonicPulseConfig config = SonicPulseConfig.get();
     private int currentTab = 0, colorIndex = 0, titleColorIndex = 0, radioScrollOffset = 0, historyScrollOffset = 0, favScrollOffset = 0, localScrollOffset = 0, renamingIndex = -1;
     private final List<String[]> radioStreams = new ArrayList<>();
     private final List<File> localFiles = new ArrayList<>();
-    private static final int ACTIVE_BORDER = 0xFFFF00FF; 
     private final SonicPulseHud hudRenderer = new SonicPulseHud();
     private boolean isShuffling = false;
     private int recentCount = 0;
 
     public ConfigScreen() { 
         super(Text.literal("SonicPulse Config")); 
-        updatePaletteIndices();
-    }
-
-    private void updatePaletteIndices() {
         for(int i=0; i<SonicPulseConfig.PALETTE.length; i++) { 
             if((0xFF000000 | SonicPulseConfig.PALETTE[i]) == (0xFF000000 | config.barColor)) colorIndex=i; 
             if((0xFF000000 | SonicPulseConfig.PALETTE[i]) == (0xFF000000 | config.titleColor)) titleColorIndex=i;
@@ -91,12 +85,11 @@ public class ConfigScreen extends Screen {
         switch (currentTab) {
             case 0: // REMOTE
                 urlField = new TextFieldWidget(textRenderer, contentX, y + 55, contentW, 20, Text.literal("URL"));
-                urlField.setMaxLength(256); addSelectableChild(urlField);
+                urlField.setMaxLength(1024); addSelectableChild(urlField);
                 addDrawableChild(ButtonWidget.builder(Text.literal("LOAD & PLAY URL"), b -> { 
                     if(!urlField.getText().isEmpty()) { isShuffling = false; SonicPulseClient.getEngine().playTrack(urlField.getText()); refreshWidgets(); }
                 }).dimensions(contentX, y + 80, contentW, 20).build());
 
-                // Smart Recent History Grid
                 List<SonicPulseConfig.HistoryEntry> recents = new ArrayList<>();
                 for (int i = config.history.size() - 1; i >= 0 && recents.size() < 4; i--) {
                     SonicPulseConfig.HistoryEntry e = config.history.get(i);
@@ -109,15 +102,13 @@ public class ConfigScreen extends Screen {
                 recentCount = recents.size();
                 
                 if (recentCount > 0) {
-                    int rY = y + 138;
                     for (int i = 0; i < recentCount; i++) {
                         SonicPulseConfig.HistoryEntry e = recents.get(i);
                         int bx = contentX + (i % 2) * (contentW / 2 + 2);
-                        int by = rY + (i / 2) * 22;
                         int bw = (contentW / 2) - 2;
                         addDrawableChild(ButtonWidget.builder(Text.literal("▶ " + textRenderer.trimToWidth(e.label, bw - 15)), b -> { 
                             isShuffling = false; config.currentTitle = e.label; SonicPulseClient.getEngine().playTrack(e.url); refreshWidgets(); 
-                        }).dimensions(bx, by, bw, 20).tooltip(Tooltip.of(Text.literal("Track: " + e.label + "\nURL: " + e.url))).build());
+                        }).dimensions(bx, y + 138 + (i / 2) * 22, bw, 20).tooltip(Tooltip.of(Text.literal("Track: " + e.label + "\nURL: " + e.url))).build());
                     }
                 }
                 break;
@@ -169,14 +160,37 @@ public class ConfigScreen extends Screen {
                 if (favs.size() > favScrollOffset + listVisibleCount) addDrawableChild(ButtonWidget.builder(Text.literal("▼"), b -> { favScrollOffset++; refreshWidgets(); }).dimensions(contentX + contentW + 2, y + 34 + (listVisibleCount - 1) * rowH, 12, 18).build());
                 break;
             case 5: // RADIO
-                radioUrlField = new TextFieldWidget(textRenderer, contentX, y + 34, contentW - 50, 20, Text.literal("M3U URL")); addSelectableChild(radioUrlField);
-                addDrawableChild(ButtonWidget.builder(Text.literal("LOAD"), b -> loadRadioM3U(radioUrlField.getText())).dimensions(contentX + contentW - 45, y + 34, 45, 20).build());
-                for (int i = radioScrollOffset; i < Math.min(radioStreams.size(), radioScrollOffset + 7); i++) {
-                    final int rsIdx = i; String[] rs = radioStreams.get(rsIdx);
-                    addDrawableChild(ButtonWidget.builder(Text.literal(rs[0]), b -> { isShuffling = false; config.currentTitle = rs[0]; config.addHistory("Radio", rs[0], rs[1]); SonicPulseClient.getEngine().playTrack(rs[1]); refreshWidgets(); }).dimensions(contentX, y + 59 + ((rsIdx - radioScrollOffset) * rowH), contentW, rowH).build());
+                String[] pNames = {"BBC", "EU", "TuneIn", "LBC", "News"};
+                String[] pUrls = {
+                    "https://gist.githubusercontent.com/bpsib/67089b959e4fa898af69fea59ad74bc3/raw/c7255834f326bc6a406080eed104ebaa9d3bc85d/BBC-Radio-HLS.m3u",
+                    "https://raw.githubusercontent.com/junguler/m3u-radio-music-playlists/main/online_radio.eu/---randomized.m3u",
+                    "https://raw.githubusercontent.com/junguler/m3u-radio-music-playlists/main/tune_in/---randomized.m3u",
+                    "https://media-ssl.musicradio.com/LBCUK", 
+                    "https://vs-hls-push-ww-live.akamaized.net/x=4/i=urn:bbc:pips:service:bbc_news_channel_hd/t=3840/v=pv14/b=5070016/main.m3u8"
+                };
+                int pW = contentW / 5;
+                for (int i = 0; i < 5; i++) {
+                    final int pIdx = i;
+                    addDrawableChild(ButtonWidget.builder(Text.literal(pNames[i]), b -> {
+                        radioUrlField.setText(pUrls[pIdx]);
+                        loadRadioM3U(pUrls[pIdx]);
+                    }).dimensions(contentX + (i * pW), y + 32, pW - 2, 20).tooltip(Tooltip.of(Text.literal("Load Preset: " + pNames[i]))).build());
                 }
-                if (radioScrollOffset > 0) addDrawableChild(ButtonWidget.builder(Text.literal("▲"), b -> { radioScrollOffset--; refreshWidgets(); }).dimensions(contentX + contentW + 2, y + 59, 12, 18).build());
-                if (radioStreams.size() > radioScrollOffset + 7) addDrawableChild(ButtonWidget.builder(Text.literal("▼"), b -> { radioScrollOffset++; refreshWidgets(); }).dimensions(contentX + contentW + 2, y + 59 + 6 * rowH, 12, 18).build());
+
+                radioUrlField = new TextFieldWidget(textRenderer, contentX, y + 55, contentW - 50, 20, Text.literal("M3U URL")); 
+                radioUrlField.setMaxLength(1024);
+                addSelectableChild(radioUrlField);
+                addDrawableChild(ButtonWidget.builder(Text.literal("LOAD"), b -> loadRadioM3U(radioUrlField.getText())).dimensions(contentX + contentW - 45, y + 55, 45, 20).build());
+                
+                for (int i = radioScrollOffset; i < Math.min(radioStreams.size(), radioScrollOffset + 6); i++) {
+                    final int rsIdx = i; String[] rs = radioStreams.get(rsIdx);
+                    String label = textRenderer.trimToWidth(rs[0], contentW - 15);
+                    addDrawableChild(ButtonWidget.builder(Text.literal(label), b -> { 
+                        isShuffling = false; config.currentTitle = rs[0]; config.addHistory("Radio", rs[0], rs[1]); SonicPulseClient.getEngine().playTrack(rs[1]); refreshWidgets(); 
+                    }).dimensions(contentX, y + 80 + ((rsIdx - radioScrollOffset) * rowH), contentW, rowH).tooltip(Tooltip.of(Text.literal(rs[0]))).build());
+                }
+                if (radioScrollOffset > 0) addDrawableChild(ButtonWidget.builder(Text.literal("▲"), b -> { radioScrollOffset--; refreshWidgets(); }).dimensions(contentX + contentW + 2, y + 80, 12, 18).build());
+                if (radioStreams.size() > radioScrollOffset + 6) addDrawableChild(ButtonWidget.builder(Text.literal("▼"), b -> { radioScrollOffset++; refreshWidgets(); }).dimensions(contentX + contentW + 2, y + 80 + 5 * rowH, 12, 18).build());
                 break;
             case 6: // LOCAL
                 addDrawableChild(ButtonWidget.builder(Text.literal("SELECT FOLDER"), b -> { 
@@ -185,13 +199,10 @@ public class ConfigScreen extends Screen {
                 addDrawableChild(ButtonWidget.builder(Text.literal("SHUFFLE ALL"), b -> { if (!localFiles.isEmpty()) { List<File> s = new ArrayList<>(localFiles); Collections.shuffle(s); File f = s.get(0); config.currentTitle = f.getName(); SonicPulseClient.getEngine().playTrack(f.getAbsolutePath()); isShuffling = false; refreshWidgets(); } }).dimensions(contentX + colW + 10, y + 32, colW, 18).build());
                 for (int i = localScrollOffset; i < Math.min(localFiles.size(), localScrollOffset + 7); i++) {
                     File f = localFiles.get(i);
-                    int rowY = y + 55 + ((i - localScrollOffset) * rowH);
-                    addDrawableChild(ButtonWidget.builder(Text.literal("♫ " + f.getName()), b -> { isShuffling = false; config.currentTitle = f.getName(); SonicPulseClient.getEngine().playTrack(f.getAbsolutePath()); refreshWidgets(); }).dimensions(contentX, rowY, contentW - 15, rowH).build());
+                    addDrawableChild(ButtonWidget.builder(Text.literal("♫ " + f.getName()), b -> { isShuffling = false; config.currentTitle = f.getName(); SonicPulseClient.getEngine().playTrack(f.getAbsolutePath()); refreshWidgets(); }).dimensions(contentX, y + 55 + ((i - localScrollOffset) * rowH), contentW - 15, rowH).build());
                 }
                 if (localScrollOffset > 0) addDrawableChild(ButtonWidget.builder(Text.literal("▲"), b -> { localScrollOffset--; refreshWidgets(); }).dimensions(contentX + contentW - 12, y + 55, 12, 18).build());
                 if (localFiles.size() > localScrollOffset + 7) addDrawableChild(ButtonWidget.builder(Text.literal("▼"), b -> { localScrollOffset++; refreshWidgets(); }).dimensions(contentX + contentW - 12, y + 55 + 6 * rowH, 12, 18).build());
-                break;
-            case 7: // ABOUT
                 break;
         }
     }
@@ -212,26 +223,54 @@ public class ConfigScreen extends Screen {
         }
     }
 
+    // --- SMART RADIO PARSER ---
     private void loadRadioM3U(String url) {
         radioStreams.clear();
-        new Thread(() -> { try { java.net.URL u = new java.net.URI(url).toURL(); java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(u.openStream())); String l, lt = null; while ((l = r.readLine()) != null) { l = l.trim(); if (l.isEmpty() || l.startsWith("#EXTM3U")) continue; if (l.startsWith("#EXTINF")) { int c = l.indexOf(","); if (c != -1) lt = l.substring(c + 1).trim(); } else if (!l.startsWith("#")) { radioStreams.add(new String[]{lt != null ? lt : "Station", l}); lt = null; } } r.close(); } catch (Exception e) {} MinecraftClient.getInstance().execute(this::refreshWidgets); }).start();
+        new Thread(() -> { 
+            try { 
+                String lowerUrl = url.toLowerCase();
+                // Bypass playlist parsing for direct streams and HLS video files
+                if (!lowerUrl.endsWith(".m3u") && !lowerUrl.endsWith(".pls") || lowerUrl.endsWith(".m3u8")) {
+                    String display = url.replaceFirst("^(http[s]?://www\\.|http[s]?://)", "");
+                    radioStreams.add(new String[]{display, url});
+                } else {
+                    // Normal M3U Text Parsing
+                    java.net.URL u = new java.net.URI(url).toURL(); 
+                    java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(u.openStream())); 
+                    String l, lt = null; 
+                    while ((l = r.readLine()) != null) { 
+                        l = l.trim(); 
+                        if (l.isEmpty() || l.startsWith("#EXTM3U")) continue; 
+                        if (l.startsWith("#EXTINF")) { 
+                            int c = l.indexOf(","); 
+                            if (c != -1) lt = l.substring(c + 1).trim(); 
+                        } else if (!l.startsWith("#")) { 
+                            String display = lt != null ? lt : l.replaceFirst("^(http[s]?://www\\.|http[s]?://)", "");
+                            radioStreams.add(new String[]{display, l}); 
+                            lt = null; 
+                        } 
+                    } 
+                    r.close(); 
+                }
+            } catch (Exception e) {} 
+            MinecraftClient.getInstance().execute(this::refreshWidgets); 
+        }).start();
     }
 
     @Override public boolean mouseClicked(double mx, double my, int b) { 
         if (currentTab == 0 && urlField != null && urlField.isMouseOver(mx, my)) urlField.setText(""); 
+        if (currentTab == 5 && radioUrlField != null && radioUrlField.isMouseOver(mx, my)) radioUrlField.setText("");
         return super.mouseClicked(mx, my, b); 
     }
 
     @Override public void render(DrawContext context, int mx, int my, float d) {
         int x = (width - BOX_WIDTH) / 2, y = (height - BOX_HEIGHT) / 2;
-        int contentX = x + SIDEBAR_WIDTH + 10;
-        int contentW = BOX_WIDTH - SIDEBAR_WIDTH - 20;
+        int contentX = x + SIDEBAR_WIDTH + 10, contentW = BOX_WIDTH - SIDEBAR_WIDTH - 20;
 
         if (currentTab == 3) {
             for (int i = 0; i < this.children().size(); i++) {
                 if (this.children().get(i) instanceof ButtonWidget btn && btn.getMessage().getString().equals("☆")) {
-                    boolean rowHovered = (mx >= contentX && mx <= contentX + contentW && my >= btn.getY() && my <= btn.getY() + 19);
-                    btn.setAlpha(rowHovered ? 1.0f : 0.15f);
+                    btn.setAlpha((mx >= contentX && mx <= contentX + contentW && my >= btn.getY() && my <= btn.getY() + 19) ? 1.0f : 0.15f);
                 }
             }
         }
@@ -260,8 +299,7 @@ public class ConfigScreen extends Screen {
             int tagColor = track.getInfo().isStream ? 0xFF00FFFF : (isLocal ? 0xFFFF00FF : 0xFFFF0000);
             String timeStr = "";
             if (!track.getInfo().isStream) {
-                long pos = track.getPosition() / 1000;
-                long dur = track.getDuration() / 1000;
+                long pos = track.getPosition() / 1000, dur = track.getDuration() / 1000;
                 timeStr = String.format("  %02d:%02d / %02d:%02d", pos/60, pos%60, dur/60, dur%60);
             }
             context.drawText(textRenderer, Text.literal(tag), x + 10, y + 9, tagColor, false);
@@ -271,7 +309,6 @@ public class ConfigScreen extends Screen {
         if (currentTab == 0) {
             context.drawText(textRenderer, Text.literal("Enter audio URL to stream:"), contentX, y + 40, 0xFFFFFFFF, false);
             if (urlField != null) urlField.render(context, mx, my, d);
-            
             int ty = y + 110;
             if (recentCount > 0) {
                 context.drawText(textRenderer, Text.literal("§aTip: Streamed URLs auto-save to your History!"), contentX, ty, 0xFFFFFFFF, false);
@@ -290,6 +327,9 @@ public class ConfigScreen extends Screen {
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("HUD THEME"), contentX + (contentW / 4), y + 36, 0xFFFF00FF);
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("BAR VISUALS"), contentX + (contentW / 4) * 3, y + 36, 0xFFFF00FF);
         }
+        
+        if (currentTab == 5 && radioUrlField != null) radioUrlField.render(context, mx, my, d);
+
         if (currentTab == 7) {
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("SONICPULSE - Created by Steve"), contentX + contentW/2, y + 35, 0xFFFF00FF);
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("Stream URLs, play local music, and vibe."), contentX + contentW/2, y + 55, 0xFFFFFFFF);
