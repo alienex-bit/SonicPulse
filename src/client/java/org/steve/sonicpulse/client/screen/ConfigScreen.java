@@ -57,19 +57,38 @@ public class ConfigScreen extends Screen {
 
         for (int i = 0; i < TAB_LABELS.length; i++) {
             final int idx = i;
-            addDrawableChild(ButtonWidget.builder(Text.literal(TAB_LABELS[idx]), b -> { currentTab = idx; renamingEntry = null; if (idx == 6) { localScrollOffset = 0; scanLocalFiles(); } refreshWidgets(); }).dimensions(x + 5, y + 38 + (i * 22), SIDEBAR_WIDTH - 10, 20).build());
+            addDrawableChild(ButtonWidget.builder(Text.literal(TAB_LABELS[idx]), b -> { 
+                currentTab = idx; renamingEntry = null; if (idx == 6) { localScrollOffset = 0; scanLocalFiles(); } refreshWidgets(); 
+            }).dimensions(x + 5, y + 38 + (i * 22), SIDEBAR_WIDTH - 10, 20).build());
         }
 
         int loaderW = (contentW - 10) / 3;
-        addDrawableChild(ButtonWidget.builder(Text.literal("LOAD FAVS"), b -> { config.activeMode = SonicPulseConfig.SessionMode.FAVOURITES; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, y + 20, loaderW, 13).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("LOAD HIST"), b -> { config.activeMode = SonicPulseConfig.SessionMode.HISTORY; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + loaderW + 5, y + 20, loaderW, 13).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("LOAD LOCAL"), b -> { config.activeMode = SonicPulseConfig.SessionMode.LOCAL; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + (loaderW * 2) + 10, y + 20, loaderW, 13).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("PLAY FAVS"), b -> { 
+            config.activeMode = SonicPulseConfig.SessionMode.FAVOURITES; SonicPulseConfig.save(); 
+            if(!config.getFavoriteHistory().isEmpty()) { SonicPulseConfig.HistoryEntry e = config.getFavoriteHistory().get(0); SonicPulseClient.getEngine().playTrack(e.url, e.label, e.type); }
+            refreshWidgets(); 
+        }).dimensions(contentX, y + 20, loaderW, 13).build());
+        
+        addDrawableChild(ButtonWidget.builder(Text.literal("PLAY HIST"), b -> { 
+            config.activeMode = SonicPulseConfig.SessionMode.HISTORY; SonicPulseConfig.save(); 
+            List<SonicPulseConfig.HistoryEntry> hist = config.history.stream().filter(e -> !e.favorite).collect(Collectors.toList());
+            if(!hist.isEmpty()) { SonicPulseConfig.HistoryEntry e = hist.get(0); SonicPulseClient.getEngine().playTrack(e.url, e.label, e.type); }
+            refreshWidgets(); 
+        }).dimensions(contentX + loaderW + 5, y + 20, loaderW, 13).build());
+        
+        addDrawableChild(ButtonWidget.builder(Text.literal("PLAY LOCAL"), b -> { 
+            config.activeMode = SonicPulseConfig.SessionMode.LOCAL; SonicPulseConfig.save(); 
+            if(localFiles.isEmpty()) scanLocalFiles(); 
+            if(!localFiles.isEmpty()) { File fl = localFiles.get(0); SonicPulseClient.getEngine().playTrack(fl.getAbsolutePath(), fl.getName(), "Local"); }
+            refreshWidgets(); 
+        }).dimensions(contentX + (loaderW * 2) + 10, y + 20, loaderW, 13).build());
 
         int deckX = x + BOX_WIDTH - 85;
         boolean playing = SonicPulseClient.getEngine().getPlayer().getPlayingTrack() != null;
         boolean paused = SonicPulseClient.getEngine().getPlayer().isPaused();
+        
         addDrawableChild(ButtonWidget.builder(Text.literal("⏮"), b -> {}).dimensions(deckX, y + 4, 20, 12).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal(paused ? "▶" : "⏸"), b -> { if (playing) SonicPulseClient.getEngine().getPlayer().setPaused(!paused); refreshWidgets(); }).dimensions(deckX + 21, y + 4, 20, 12).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal(playing && !paused ? "⏸" : "▶"), b -> { handlePlayPause(); }).dimensions(deckX + 21, y + 4, 20, 12).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("⏹"), b -> { SonicPulseClient.getEngine().stop(); refreshWidgets(); }).dimensions(deckX + 42, y + 4, 20, 12).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("⏭"), b -> { handleSkip(); }).dimensions(deckX + 63, y + 4, 20, 12).build());
 
@@ -97,16 +116,16 @@ public class ConfigScreen extends Screen {
                 addDrawableChild(ButtonWidget.builder(Text.literal("Bars: " + (config.showBars ? "ON" : "OFF")), b -> { config.showBars = !config.showBars; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 80, colW, 20).build());
                 break;
             case 2:
-                addDrawableChild(ButtonWidget.builder(Text.literal("Order: " + config.ribbonLayout.getDisplayName()), b -> { config.nextRibbonLayout(); refreshWidgets(); }).dimensions(contentX, tabY + 5, contentW, 20).build());
+                addDrawableChild(ButtonWidget.builder(Text.literal("Element Sequence: " + config.ribbonLayout.getDisplayName()), b -> { config.nextRibbonLayout(); refreshWidgets(); }).dimensions(contentX, tabY + 5, contentW, 20).build());
                 addDrawableChild(new SliderWidget(contentX, tabY + 30, contentW, 20, Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%"), (config.hudScale - 0.25) / 0.75) { @Override protected void updateMessage() { setMessage(Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%")); } @Override protected void applyValue() { config.hudScale = (float)(0.25 + (value * 0.75)); SonicPulseConfig.save(); } });
                 break;
             case 3:
-                List<SonicPulseConfig.HistoryEntry> hSorted = config.history.stream().sorted(Comparator.comparingLong((SonicPulseConfig.HistoryEntry e) -> e.lastPlayed).reversed()).limit(20).collect(Collectors.toList());
+                List<SonicPulseConfig.HistoryEntry> hSorted = config.history.stream().filter(e -> !e.favorite).sorted(Comparator.comparingLong((SonicPulseConfig.HistoryEntry e) -> e.lastPlayed).reversed()).limit(20).collect(Collectors.toList());
                 addDrawableChild(ButtonWidget.builder(Text.literal("§cClear History"), b -> { config.history.removeIf(e -> !e.favorite); SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, tabY, contentW, 16).build());
                 for (int i = historyScrollOffset; i < Math.min(hSorted.size(), historyScrollOffset + 7); i++) {
                     final int hIdx = i; SonicPulseConfig.HistoryEntry e = hSorted.get(hIdx); int rY = tabY + 20 + ((hIdx - historyScrollOffset) * rowH);
                     addDrawableChild(ButtonWidget.builder(Text.literal(textRenderer.trimToWidth(e.label, contentW - 55)), b -> { SonicPulseClient.getEngine().playTrack(e.url, e.label, e.type); refreshWidgets(); }).dimensions(contentX, rY, contentW - 40, rowH).build());
-                    addDrawableChild(ButtonWidget.builder(Text.literal(e.favorite ? "★" : "☆"), b -> { e.favorite = !e.favorite; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + contentW - 38, rY, 18, rowH).build());
+                    addDrawableChild(ButtonWidget.builder(Text.literal("☆"), b -> { e.favorite = true; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + contentW - 38, rY, 18, rowH).build());
                     addDrawableChild(ButtonWidget.builder(Text.literal("X"), b -> { config.history.remove(e); SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + contentW - 18, rY, 18, rowH).build());
                 }
                 break;
@@ -151,6 +170,32 @@ public class ConfigScreen extends Screen {
         }
     }
 
+    private void handlePlayPause() {
+        boolean playing = SonicPulseClient.getEngine().getPlayer().getPlayingTrack() != null;
+        boolean paused = SonicPulseClient.getEngine().getPlayer().isPaused();
+        if (playing) {
+            SonicPulseClient.getEngine().getPlayer().setPaused(!paused);
+        } else {
+            if (config.activeMode == SonicPulseConfig.SessionMode.FAVOURITES && !config.getFavoriteHistory().isEmpty()) {
+                SonicPulseConfig.HistoryEntry e = config.getFavoriteHistory().get(0);
+                SonicPulseClient.getEngine().playTrack(e.url, e.label, e.type);
+            } else if (config.activeMode == SonicPulseConfig.SessionMode.HISTORY) {
+                List<SonicPulseConfig.HistoryEntry> hist = config.history.stream().filter(e -> !e.favorite).collect(Collectors.toList());
+                if (!hist.isEmpty()) {
+                    SonicPulseConfig.HistoryEntry e = hist.get(0);
+                    SonicPulseClient.getEngine().playTrack(e.url, e.label, e.type);
+                }
+            } else if (config.activeMode == SonicPulseConfig.SessionMode.LOCAL) {
+                if (localFiles.isEmpty()) scanLocalFiles();
+                if (!localFiles.isEmpty()) SonicPulseClient.getEngine().playTrack(localFiles.get(0).getAbsolutePath(), localFiles.get(0).getName(), "Local");
+            } else if (config.activeMode == SonicPulseConfig.SessionMode.RADIO && !radioStreams.isEmpty()) {
+                String[] rs = radioStreams.get(0);
+                SonicPulseClient.getEngine().playTrack(rs[1], rs[0], "Radio");
+            }
+        }
+        refreshWidgets();
+    }
+
     private void pickFolder() {
         if (Util.getOperatingSystem() == Util.OperatingSystem.WINDOWS) {
             new Thread(() -> { try { ProcessBuilder pb = new ProcessBuilder("powershell.exe", "-NoProfile", "-Command", "Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.FolderBrowserDialog; if($f.ShowDialog() -eq 'OK') { $f.SelectedPath }"); Process p = pb.start(); BufferedReader rd = new BufferedReader(new InputStreamReader(p.getInputStream())); String path = rd.readLine(); if (path != null && !path.trim().isEmpty()) { config.localMusicPath = path.trim(); SonicPulseConfig.save(); MinecraftClient.getInstance().execute(this::scanLocalFiles); MinecraftClient.getInstance().execute(this::refreshWidgets); } } catch (Exception e) {} }).start();
@@ -158,9 +203,40 @@ public class ConfigScreen extends Screen {
     }
 
     private void handleSkip() {
+        AudioTrack cur = SonicPulseClient.getEngine().getPlayer().getPlayingTrack();
+        String curUri = cur != null ? cur.getInfo().uri : null;
+
         if (config.activeMode == SonicPulseConfig.SessionMode.FAVOURITES) {
             List<SonicPulseConfig.HistoryEntry> favs = config.getFavoriteHistory();
-            if (!favs.isEmpty()) { AudioTrack cur = SonicPulseClient.getEngine().getPlayer().getPlayingTrack(); int ni = 0; if (cur != null) { for (int i = 0; i < favs.size(); i++) { if (favs.get(i).url.equals(cur.getInfo().uri)) { ni = (i + 1) % favs.size(); break; } } } SonicPulseConfig.HistoryEntry n = favs.get(ni); SonicPulseClient.getEngine().playTrack(n.url, n.label, n.type); }
+            if (!favs.isEmpty()) { 
+                int ni = 0; if (curUri != null) { for (int i = 0; i < favs.size(); i++) { if (favs.get(i).url.equals(curUri)) { ni = (i + 1) % favs.size(); break; } } } 
+                SonicPulseConfig.HistoryEntry n = favs.get(ni); SonicPulseClient.getEngine().playTrack(n.url, n.label, n.type); 
+            }
+        } else if (config.activeMode == SonicPulseConfig.SessionMode.HISTORY) {
+            List<SonicPulseConfig.HistoryEntry> hist = config.history.stream().filter(e -> !e.favorite).sorted(Comparator.comparing(e -> e.label)).collect(Collectors.toList());
+            if (!hist.isEmpty()) {
+                int ni = 0; if (curUri != null) { for (int i = 0; i < hist.size(); i++) { if (hist.get(i).url.equals(curUri)) { ni = (i + 1) % hist.size(); break; } } }
+                SonicPulseConfig.HistoryEntry n = hist.get(ni); SonicPulseClient.getEngine().playTrack(n.url, n.label, n.type);
+            }
+        } else if (config.activeMode == SonicPulseConfig.SessionMode.LOCAL) {
+            if (localFiles.isEmpty()) scanLocalFiles();
+            if (!localFiles.isEmpty()) {
+                int ni = 0; 
+                if (curUri != null) { 
+                    for (int i = 0; i < localFiles.size(); i++) { 
+                        File fl = localFiles.get(i);
+                        if (curUri.equals(fl.getAbsolutePath()) || curUri.equals(fl.toURI().toString()) || curUri.replace("\\", "/").endsWith(fl.getName())) { 
+                            ni = (i + 1) % localFiles.size(); break; 
+                        } 
+                    } 
+                }
+                File n = localFiles.get(ni); SonicPulseClient.getEngine().playTrack(n.getAbsolutePath(), n.getName(), "Local");
+            }
+        } else if (config.activeMode == SonicPulseConfig.SessionMode.RADIO) {
+            if (!radioStreams.isEmpty()) {
+                int ni = 0; if (curUri != null) { for (int i = 0; i < radioStreams.size(); i++) { if (radioStreams.get(i)[1].equals(curUri)) { ni = (i + 1) % radioStreams.size(); break; } } }
+                String[] n = radioStreams.get(ni); SonicPulseClient.getEngine().playTrack(n[1], n[0], "Radio");
+            }
         }
         refreshWidgets();
     }
@@ -182,7 +258,7 @@ public class ConfigScreen extends Screen {
 
     @Override public boolean mouseScrolled(double mx, double my, double h, double v) {
         int d = (v > 0) ? -1 : 1;
-        if (currentTab == 3) historyScrollOffset = Math.max(0, Math.min(config.history.size() - 7, historyScrollOffset + d));
+        if (currentTab == 3) historyScrollOffset = Math.max(0, Math.min((int)config.history.stream().filter(e -> !e.favorite).count() - 7, historyScrollOffset + d));
         if (currentTab == 4) favScrollOffset = Math.max(0, Math.min(config.getFavoriteHistory().size() - 8, favScrollOffset + d));
         if (currentTab == 5) radioScrollOffset = Math.max(0, Math.min(radioStreams.size() - 6, radioScrollOffset + d));
         if (currentTab == 6) localScrollOffset = Math.max(0, Math.min(localFiles.size() - 7, localScrollOffset + d));
@@ -197,13 +273,50 @@ public class ConfigScreen extends Screen {
         context.drawBorder(x, y, BOX_WIDTH, BOX_HEIGHT, config.skin.getBorderColor());
         context.fill(x + SIDEBAR_WIDTH, y + 38, x + SIDEBAR_WIDTH + 1, y + BOX_HEIGHT - 5, 0x44FFFFFF);
         super.render(context, mx, my, d);
-        String trk = (config.currentTitle != null) ? " | " + textRenderer.trimToWidth(config.currentTitle, 150) : "";
-        context.drawText(textRenderer, Text.literal("• STATUS: " + config.activeMode.name() + trk), x + 5, y + 6, 0xAAFFFFFF, false);
+        
+        boolean isEnginePlaying = SonicPulseClient.getEngine().getPlayer().getPlayingTrack() != null;
+        boolean isEnginePaused = SonicPulseClient.getEngine().getPlayer().isPaused();
+        String stateTxt = isEnginePlaying ? (isEnginePaused ? "§e[ ⏸ ] PAUSED" : "§a[ ♫ ] LIVE") : "§7[ ■ ] STANDBY";
+        String trkTxt = (config.currentTitle != null && isEnginePlaying) ? " » §f" + textRenderer.trimToWidth(config.currentTitle, 115) : "";
+        context.drawText(textRenderer, Text.literal(stateTxt + " §8(" + config.activeMode.name() + ")" + trkTxt), x + 5, y + 6, 0xFFFFFFFF, false);
+        
         context.drawBorder(x + 4, y + 37 + (currentTab * 22), SIDEBAR_WIDTH - 8, 22, ACTIVE_BORDER);
+
+        // DRAW ACTIVE TRACK HIGHLIGHT
+        AudioTrack playingTrack = SonicPulseClient.getEngine().getPlayer().getPlayingTrack();
+        String activeUri = playingTrack != null ? playingTrack.getInfo().uri : null;
+        if (activeUri != null) {
+            int highlightColor = 0xFF55FF55; // Lime Green
+            if (currentTab == 3) {
+                List<SonicPulseConfig.HistoryEntry> hSorted = config.history.stream().filter(e -> !e.favorite).sorted(Comparator.comparingLong((SonicPulseConfig.HistoryEntry e) -> e.lastPlayed).reversed()).limit(20).collect(Collectors.toList());
+                for (int i = historyScrollOffset; i < Math.min(hSorted.size(), historyScrollOffset + 7); i++) {
+                    if (hSorted.get(i).url.equals(activeUri)) {
+                        int rY = tabY + 20 + ((i - historyScrollOffset) * 19);
+                        context.drawBorder(contentX - 1, rY - 1, contentW - 38, 21, highlightColor);
+                    }
+                }
+            } else if (currentTab == 4) {
+                List<SonicPulseConfig.HistoryEntry> fvs = config.getFavoriteHistory();
+                for (int i = favScrollOffset; i < Math.min(fvs.size(), favScrollOffset + 8); i++) {
+                    if (fvs.get(i).url.equals(activeUri)) {
+                        int rY = tabY + ((i - favScrollOffset) * 19);
+                        context.drawBorder(contentX + 19, rY - 1, contentW - 93, 21, highlightColor);
+                    }
+                }
+            } else if (currentTab == 6) {
+                for (int i = localScrollOffset; i < Math.min(localFiles.size(), localScrollOffset + 7); i++) {
+                    File fl = localFiles.get(i);
+                    if (activeUri.equals(fl.getAbsolutePath()) || activeUri.equals(fl.toURI().toString()) || activeUri.replace("\\", "/").endsWith(fl.getName())) {
+                        int rY = tabY + 26 + ((i - localScrollOffset) * 19);
+                        context.drawBorder(contentX - 1, rY - 1, contentW - 13, 21, highlightColor);
+                    }
+                }
+            }
+        }
 
         if (currentTab >= 3 && currentTab <= 6) {
             int total = 0, offset = 0, visible = 0;
-            if (currentTab == 3) { total = config.history.size(); offset = historyScrollOffset; visible = 7; }
+            if (currentTab == 3) { total = (int)config.history.stream().filter(e -> !e.favorite).count(); offset = historyScrollOffset; visible = 7; }
             if (currentTab == 4) { total = config.getFavoriteHistory().size(); offset = favScrollOffset; visible = 8; }
             if (currentTab == 5) { total = radioStreams.size(); offset = radioScrollOffset; visible = 6; }
             if (currentTab == 6) { total = localFiles.size(); offset = localScrollOffset; visible = 7; }
@@ -227,12 +340,9 @@ public class ConfigScreen extends Screen {
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("§l§nSONICPULSE"), centerX, tabY + 5, 0xFFFF00FF);
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("Professional Media Control Unit"), centerX, tabY + 18, 0xAAAAAA);
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("Created by: §bSteve Watkins"), centerX, tabY + 40, 0xFFFFFFFF);
-            
-            // ACTUAL QR CODE TEXTURE FIXED
             context.drawTexture(RenderLayer::getGuiTextured, QR_CODE, centerX - 25, tabY + 55, 0, 0, 50, 50, 50, 50);
-            
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("§7Enjoying the vibes? Buy Steve a coffee!"), centerX, tabY + 110, 0xAAFFFFFF);
-            context.drawCenteredTextWithShadow(textRenderer, Text.literal("§fVersion " + CURRENT_VERSION + " | Up to Date"), centerX, y + BOX_HEIGHT - 15, 0xFFFFFFFF); // Brightened version footer
+            context.drawCenteredTextWithShadow(textRenderer, Text.literal("§fVersion " + CURRENT_VERSION + " | Up to Date"), centerX, y + BOX_HEIGHT - 15, 0xFFFFFFFF); 
         }
         hudRenderer.render(context, true, 0, 0);
     }

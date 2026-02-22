@@ -36,8 +36,12 @@ public class SonicPulseConfig {
     public enum VisualizerStyle { SOLID, FLOATING_PEAKS }
     public enum BgEffect { OFF, BASS_PULSE, RGB_AURA }
     public enum RibbonLayout {
-        LOG_TRK_BAR("Logo|Trk|Bar"), LOG_BAR_TRK("Logo|Bar|Trk"), TRK_LOG_BAR("Trk|Logo|Bar"),
-        TRK_BAR_LOG("Trk|Bar|Logo"), BAR_LOG_TRK("Bar|Logo|Trk"), BAR_TRK_LOG("Bar|Trk|Logo");
+        LOG_TRK_BAR("Logo → Track → Bars"), 
+        LOG_BAR_TRK("Logo → Bars → Track"), 
+        TRK_LOG_BAR("Track → Logo → Bars"),
+        TRK_BAR_LOG("Track → Bars → Logo"), 
+        BAR_LOG_TRK("Bars → Logo → Track"), 
+        BAR_TRK_LOG("Bars → Track → Logo");
         private final String displayName;
         RibbonLayout(String name) { this.displayName = name; }
         public String getDisplayName() { return displayName; }
