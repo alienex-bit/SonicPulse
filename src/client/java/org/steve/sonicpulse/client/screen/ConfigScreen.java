@@ -24,7 +24,11 @@ public class ConfigScreen extends Screen {
     private static final int BOX_WIDTH = 360, BOX_HEIGHT = 220, SIDEBAR_WIDTH = 75, ACTIVE_BORDER = 0xFFFF00FF;
     private TextFieldWidget urlField, radioUrlField, renameField;
     private final SonicPulseConfig config = SonicPulseConfig.get();
-    private int currentTab = 0, colorIndex = 0, titleColorIndex = 0, radioScrollOffset = 0, historyScrollOffset = 0, favScrollOffset = 0, localScrollOffset = 0, renamingIndex = -1;
+    private int currentTab = 0, colorIndex = 0, titleColorIndex = 0, radioScrollOffset = 0, historyScrollOffset = 0, favScrollOffset = 0, localScrollOffset = 0;
+    
+    // THE FIX: Track the object itself, not its number in the list
+    private SonicPulseConfig.HistoryEntry renamingEntry = null;
+    
     private final List<String[]> radioStreams = new ArrayList<>();
     private final List<File> localFiles = new ArrayList<>();
     private final SonicPulseHud hudRenderer = new SonicPulseHud();
@@ -69,7 +73,7 @@ public class ConfigScreen extends Screen {
         for (int i = 0; i < TAB_LABELS.length; i++) {
             final int idx = i;
             addDrawableChild(ButtonWidget.builder(Text.literal(TAB_LABELS[idx]), b -> { 
-                currentTab = idx; renamingIndex = -1; 
+                currentTab = idx; renamingEntry = null; 
                 if (idx == 6) { localScrollOffset = 0; scanLocalFiles(); }
                 refreshWidgets(); 
             }).dimensions(x + 5, y + 28 + (i * 22), SIDEBAR_WIDTH - 10, 20).build());
@@ -102,7 +106,7 @@ public class ConfigScreen extends Screen {
         int rowH = 19, listVisibleCount = 9, colW = (contentW / 2) - 5;
 
         switch (currentTab) {
-            case 0: 
+            case 0: // REMOTE
                 urlField = new TextFieldWidget(textRenderer, contentX, y + 55, contentW, 20, Text.literal("URL"));
                 urlField.setMaxLength(1024); addSelectableChild(urlField);
                 addDrawableChild(ButtonWidget.builder(Text.literal("LOAD & PLAY URL"), b -> { 
@@ -131,27 +135,25 @@ public class ConfigScreen extends Screen {
                     }
                 }
                 break;
-            case 1: 
+            case 1: // VISUALS
                 addDrawableChild(ButtonWidget.builder(Text.literal("HUD: " + (config.hudVisible ? "VISIBLE" : "HIDDEN")), b -> { config.hudVisible = !config.hudVisible; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, y + 50, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Skin: " + config.skin.getName()), b -> { config.nextSkin(); refreshWidgets(); }).dimensions(contentX, y + 75, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Logo: " + (config.showLogo ? "ON" : "OFF")), b -> { config.showLogo = !config.showLogo; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, y + 100, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Track: " + (config.showTrack ? "ON" : "OFF")), b -> { config.showTrack = !config.showTrack; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, y + 125, colW, 20).build());
-                
                 addDrawableChild(ButtonWidget.builder(Text.literal("BG: " + config.bgEffect.name().replace("_", " ")), b -> { config.nextBgEffect(); refreshWidgets(); }).dimensions(contentX, y + 150, colW, 20).build());
-                
                 addDrawableChild(ButtonWidget.builder(Text.literal("Style: " + config.visStyle.name().replace("_", " ")), b -> { config.nextVisStyle(); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 50, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Bar: " + SonicPulseConfig.COLOR_NAMES[colorIndex]), b -> { colorIndex = (colorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setColor(SonicPulseConfig.PALETTE[colorIndex]); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 75, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Hud Title: " + SonicPulseConfig.COLOR_NAMES[titleColorIndex]), b -> { titleColorIndex = (titleColorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setTitleColor(SonicPulseConfig.PALETTE[titleColorIndex]); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 100, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Bars: " + (config.showBars ? "ON" : "OFF")), b -> { config.showBars = !config.showBars; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 125, colW, 20).build());
                 break;
-            case 2: 
+            case 2: // LAYOUT
                 addDrawableChild(ButtonWidget.builder(Text.literal("Order: " + config.ribbonLayout.getDisplayName()), b -> { config.nextRibbonLayout(); refreshWidgets(); }).dimensions(contentX, y + 45, contentW, 20).build());
                 addDrawableChild(new SliderWidget(contentX, y + 70, contentW, 20, Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%"), (config.hudScale - 0.25) / 0.75) { 
                     @Override protected void updateMessage() { setMessage(Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%")); } 
                     @Override protected void applyValue() { config.hudScale = (float)(0.25 + (value * 0.75)); SonicPulseConfig.save(); } 
                 });
                 break;
-            case 3: 
+            case 3: // HISTORY
                 List<SonicPulseConfig.HistoryEntry> historyOnly = config.history.stream().filter(e -> !e.favorite).toList();
                 addDrawableChild(ButtonWidget.builder(Text.literal("§cClear History"), b -> { config.history.removeIf(e -> !e.favorite); SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, y + 32, contentW, 16).build());
                 for (int i = historyScrollOffset; i < Math.min(historyOnly.size(), historyScrollOffset + 8); i++) {
@@ -164,27 +166,33 @@ public class ConfigScreen extends Screen {
                 if (historyScrollOffset > 0) addDrawableChild(ButtonWidget.builder(Text.literal("▲"), b -> { historyScrollOffset--; refreshWidgets(); }).dimensions(contentX + contentW + 2, y + 51, 12, 18).build());
                 if (historyOnly.size() > historyScrollOffset + 8) addDrawableChild(ButtonWidget.builder(Text.literal("▼"), b -> { historyScrollOffset++; refreshWidgets(); }).dimensions(contentX + contentW + 2, y + 51 + 7 * rowH, 12, 18).build());
                 break;
-            case 4: 
+            case 4: // FAVORITES
                 List<SonicPulseConfig.HistoryEntry> favs = config.getFavoriteHistory();
                 for (int i = favScrollOffset; i < Math.min(favs.size(), favScrollOffset + listVisibleCount); i++) {
                     final int fIdx = i; SonicPulseConfig.HistoryEntry e = favs.get(fIdx);
                     int rowY = y + 34 + ((fIdx - favScrollOffset) * rowH);
-                    if (renamingIndex == fIdx) {
+                    
+                    // FIXED: Compare against the actual object 'e', not the index 'i'
+                    if (renamingEntry == e) {
                         renameField = new TextFieldWidget(textRenderer, contentX, rowY, contentW - 20, rowH, Text.literal(""));
                         renameField.setText(e.label); addSelectableChild(renameField);
-                        addDrawableChild(ButtonWidget.builder(Text.literal("✔"), b -> { e.label = renameField.getText(); if(playing && SonicPulseClient.getEngine().getPlayer().getPlayingTrack().getInfo().uri.equals(e.url)) config.currentTitle = e.label; renamingIndex = -1; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + contentW - 18, rowY, 18, rowH).build());
+                        addDrawableChild(ButtonWidget.builder(Text.literal("✔"), b -> { 
+                            e.label = renameField.getText(); 
+                            if(playing && SonicPulseClient.getEngine().getPlayer().getPlayingTrack().getInfo().uri.equals(e.url)) config.currentTitle = e.label; 
+                            renamingEntry = null; SonicPulseConfig.save(); refreshWidgets(); 
+                        }).dimensions(contentX + contentW - 18, rowY, 18, rowH).build());
                     } else {
                         addDrawableChild(ButtonWidget.builder(Text.literal(e.label), b -> { isShuffling = false; config.currentTitle = e.label; SonicPulseClient.getEngine().playTrack(e.url); refreshWidgets(); }).dimensions(contentX, rowY, contentW - 75, rowH).build());
                         addDrawableChild(ButtonWidget.builder(Text.literal("↑"), b -> { moveFav(e, -1); }).dimensions(contentX + contentW - 73, rowY, 17, rowH).build());
                         addDrawableChild(ButtonWidget.builder(Text.literal("↓"), b -> { moveFav(e, 1); }).dimensions(contentX + contentW - 55, rowY, 17, rowH).build());
-                        addDrawableChild(ButtonWidget.builder(Text.literal("R"), b -> { renamingIndex = fIdx; refreshWidgets(); }).dimensions(contentX + contentW - 36, rowY, 17, rowH).tooltip(Tooltip.of(Text.literal("Rename"))).build());
+                        addDrawableChild(ButtonWidget.builder(Text.literal("R"), b -> { renamingEntry = e; refreshWidgets(); }).dimensions(contentX + contentW - 36, rowY, 17, rowH).tooltip(Tooltip.of(Text.literal("Rename"))).build());
                         addDrawableChild(ButtonWidget.builder(Text.literal("X"), b -> { e.favorite = false; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + contentW - 18, rowY, 17, rowH).tooltip(Tooltip.of(Text.literal("Remove"))).build());
                     }
                 }
                 if (favScrollOffset > 0) addDrawableChild(ButtonWidget.builder(Text.literal("▲"), b -> { favScrollOffset--; refreshWidgets(); }).dimensions(contentX + contentW + 2, y + 34, 12, 18).build());
                 if (favs.size() > favScrollOffset + listVisibleCount) addDrawableChild(ButtonWidget.builder(Text.literal("▼"), b -> { favScrollOffset++; refreshWidgets(); }).dimensions(contentX + contentW + 2, y + 34 + (listVisibleCount - 1) * rowH, 12, 18).build());
                 break;
-            case 5: 
+            case 5: // RADIO
                 String[] pNames = {"BBC", "EU", "TuneIn", "LBC", "News"};
                 String[] pUrls = {
                     "https://gist.githubusercontent.com/bpsib/67089b959e4fa898af69fea59ad74bc3/raw/c7255834f326bc6a406080eed104ebaa9d3bc85d/BBC-Radio-HLS.m3u",
@@ -201,12 +209,9 @@ public class ConfigScreen extends Screen {
                         loadRadioM3U(pUrls[pIdx]);
                     }).dimensions(contentX + (i * pW), y + 32, pW - 2, 20).tooltip(Tooltip.of(Text.literal("Load Preset: " + pNames[i]))).build());
                 }
-
                 radioUrlField = new TextFieldWidget(textRenderer, contentX, y + 55, contentW - 50, 20, Text.literal("M3U URL")); 
-                radioUrlField.setMaxLength(1024);
-                addSelectableChild(radioUrlField);
+                radioUrlField.setMaxLength(1024); addSelectableChild(radioUrlField);
                 addDrawableChild(ButtonWidget.builder(Text.literal("LOAD"), b -> loadRadioM3U(radioUrlField.getText())).dimensions(contentX + contentW - 45, y + 55, 45, 20).build());
-                
                 for (int i = radioScrollOffset; i < Math.min(radioStreams.size(), radioScrollOffset + 6); i++) {
                     final int rsIdx = i; String[] rs = radioStreams.get(rsIdx);
                     String label = textRenderer.trimToWidth(rs[0], contentW - 15);
@@ -217,7 +222,7 @@ public class ConfigScreen extends Screen {
                 if (radioScrollOffset > 0) addDrawableChild(ButtonWidget.builder(Text.literal("▲"), b -> { radioScrollOffset--; refreshWidgets(); }).dimensions(contentX + contentW + 2, y + 80, 12, 18).build());
                 if (radioStreams.size() > radioScrollOffset + 6) addDrawableChild(ButtonWidget.builder(Text.literal("▼"), b -> { radioScrollOffset++; refreshWidgets(); }).dimensions(contentX + contentW + 2, y + 80 + 5 * rowH, 12, 18).build());
                 break;
-            case 6: 
+            case 6: // LOCAL
                 addDrawableChild(ButtonWidget.builder(Text.literal("SELECT FOLDER"), b -> { 
                     new Thread(() -> { try { System.setProperty("java.awt.headless", "false"); String script = "Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.FolderBrowserDialog; if($f.ShowDialog() -eq 'OK'){$f.SelectedPath}"; Process p = Runtime.getRuntime().exec(new String[]{"powershell", "-Command", script}); Scanner s = new Scanner(p.getInputStream()); if(s.hasNextLine()) { String path = s.nextLine().trim(); if(!path.isEmpty()) MinecraftClient.getInstance().execute(() -> { config.localMusicPath = path; SonicPulseConfig.save(); scanLocalFiles(); refreshWidgets(); }); } } catch (Exception e) {} }).start();
                 }).dimensions(contentX, y + 32, colW, 18).build());
@@ -230,7 +235,7 @@ public class ConfigScreen extends Screen {
                 if (localScrollOffset > 0) addDrawableChild(ButtonWidget.builder(Text.literal("▲"), b -> { localScrollOffset--; refreshWidgets(); }).dimensions(contentX + contentW - 12, y + 55, 12, 18).build());
                 if (localFiles.size() > localScrollOffset + 7) addDrawableChild(ButtonWidget.builder(Text.literal("▼"), b -> { localScrollOffset++; refreshWidgets(); }).dimensions(contentX + contentW - 12, y + 55 + 6 * rowH, 12, 18).build());
                 break;
-            case 7: 
+            case 7: // ABOUT
                 if (fetchedVersion != null && !CURRENT_VERSION.equals(fetchedVersion)) {
                     addDrawableChild(ButtonWidget.builder(Text.literal("§6⭐ UPDATE TO v" + fetchedVersion + " ⭐"), b -> {
                         try { net.minecraft.util.Util.getOperatingSystem().open(java.net.URI.create("https://modrinth.com/mod/sonicpulse")); } catch (Exception e) {}
@@ -327,14 +332,9 @@ public class ConfigScreen extends Screen {
         if (playing) {
             String uri = track.getInfo().uri.toLowerCase();
             boolean isLocal = uri.startsWith("file") || uri.matches("^[a-zA-Z]:\\\\.*");
-            
-            String tag = "[ 🌐 WEB AUDIO ]";
-            int tagColor = 0xFF00FFFF;
-
-            if (isLocal) {
-                tag = "[ 📁 LOCAL ]";
-                tagColor = 0xFFFF00FF;
-            } else if (track.getInfo().isStream) {
+            String tag = "[ 🌐 WEB AUDIO ]"; int tagColor = 0xFF00FFFF;
+            if (isLocal) { tag = "[ 📁 LOCAL ]"; tagColor = 0xFFFF00FF; }
+            else if (track.getInfo().isStream) {
                 if (uri.contains("twitch.tv")) { tag = "[ 📺 TWITCH ]"; tagColor = 0xFFA020F0; }
                 else if (uri.contains("youtube.com") || uri.contains("youtu.be")) { tag = "[ 🔴 YT LIVE ]"; tagColor = 0xFFFF0000; }
                 else { tag = "[ 📻 STREAM ]"; tagColor = 0xFF00FFFF; }
@@ -344,7 +344,6 @@ public class ConfigScreen extends Screen {
                 else if (uri.contains("bandcamp.com")) { tag = "[ 🎧 BANDCAMP ]"; tagColor = 0xFF00CED1; }
                 else if (uri.contains("vimeo.com")) { tag = "[ 🎬 VIMEO ]"; tagColor = 0xFF1E90FF; }
             }
-
             String timeStr = "";
             if (!track.getInfo().isStream) {
                 long pos = track.getPosition() / 1000, dur = track.getDuration() / 1000;
@@ -353,7 +352,6 @@ public class ConfigScreen extends Screen {
             context.drawText(textRenderer, Text.literal(tag), x + 10, y + 9, tagColor, false);
             context.drawText(textRenderer, Text.literal(timeStr), x + 10 + textRenderer.getWidth(tag), y + 9, 0xFFFFFFFF, false);
         }
-
         if (currentTab == 0) {
             context.drawText(textRenderer, Text.literal("Enter audio URL to stream:"), contentX, y + 40, 0xFFFFFFFF, false);
             if (urlField != null) urlField.render(context, mx, my, d);
@@ -369,26 +367,19 @@ public class ConfigScreen extends Screen {
                 context.drawText(textRenderer, Text.literal("§aTip: Streamed URLs auto-save to your History!"), contentX, ty + 60, 0xFFFFFFFF, false);
             }
         }
-        
         if (currentTab == 1) {
             context.fill(contentX + (contentW / 2), y + 45, contentX + (contentW / 2) + 1, y + 170, 0x44FFFFFF);
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("HUD THEME"), contentX + (contentW / 4), y + 36, 0xFFFF00FF);
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("BAR VISUALS"), contentX + (contentW / 4) * 3, y + 36, 0xFFFF00FF);
         }
-        
         if (currentTab == 5 && radioUrlField != null) radioUrlField.render(context, mx, my, d);
-
         if (currentTab == 7) {
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("SONICPULSE"), contentX + contentW/2, y + 30, 0xFFFF00FF);
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("Created by Steve"), contentX + contentW/2, y + 45, 0xFFFFFFFF);
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("Version: " + CURRENT_VERSION), contentX + contentW/2, y + 58, 0xAAAAAA);
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("Stream URLs, play local music, and vibe."), contentX + contentW/2, y + 75, 0xFFFFFFFF);
-            
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("☕ Buy Steve a Coffee:"), contentX + contentW/2, y + 95, 0xFFFFFF00);
-            
-            // THE FIX: Added correct RenderLayer and parameters for modern drawTexture call
             context.drawTexture(RenderLayer::getGuiTextured, Identifier.of("sonicpulse", "textures/coffee_qr.png"), contentX + contentW/2 - 30, y + 108, 0.0f, 0.0f, 60, 60, 60, 60);
-
             int updateY = y + 175;
             if (fetchedVersion != null && !CURRENT_VERSION.equals(fetchedVersion)) {
                 context.drawCenteredTextWithShadow(textRenderer, Text.literal("§eA new update is available!"), contentX + contentW/2, updateY, 0xFFFFFF);
@@ -398,9 +389,10 @@ public class ConfigScreen extends Screen {
                 context.drawCenteredTextWithShadow(textRenderer, Text.literal("§7Checking for updates..."), contentX + contentW/2, updateY, 0xFFFFFF);
             }
         }
-        
         context.drawBorder(x + 4, y + 27 + (currentTab * 22), SIDEBAR_WIDTH - 8, 22, ACTIVE_BORDER);
-        if (currentTab == 4 && renameField != null && renamingIndex != -1) renameField.render(context, mx, my, d);
+        
+        // FIXED: Check against 'renamingEntry', not an index
+        if (currentTab == 4 && renameField != null && renamingEntry != null) renameField.render(context, mx, my, d);
         hudRenderer.render(context, true, 0, 0);
     }
 }
