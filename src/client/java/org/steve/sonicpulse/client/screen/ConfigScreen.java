@@ -46,7 +46,8 @@ public class ConfigScreen extends Screen {
         }
     }
 
-    private static final String[] TAB_LABELS = {"📡 REMOTE", "🎨 VISUAL", "📐 LAYOUT", "🕒 HIST", "⭐️ FAVS", "📻 RADIO", "♫ LOCAL", "ℹ️ ABOUT"};
+    // FONT PURGE: Stripped the hidden variation selectors from the Star and Info icons!
+    private static final String[] TAB_LABELS = {"📡 REMOTE", "🎨 VISUAL", "📐 LAYOUT", "🕒 HIST", "★ FAVS", "📻 RADIO", "♫ LOCAL", "i ABOUT"};
 
     @Override protected void init() { refreshWidgets(); }
     
@@ -114,7 +115,6 @@ public class ConfigScreen extends Screen {
                 addDrawableChild(ButtonWidget.builder(Text.literal("Hud Title: " + SonicPulseConfig.COLOR_NAMES[titleColorIndex]), b -> { titleColorIndex = (titleColorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setTitleColor(SonicPulseConfig.PALETTE[titleColorIndex]); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 55, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Bars: " + (config.showBars ? "ON" : "OFF")), b -> { config.showBars = !config.showBars; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 80, colW, 20).build());
                 
-                // --- THE CONTROL DECK UI (LASER REMOVED) ---
                 if (config.bgEffect != SonicPulseConfig.BgEffect.OFF) {
                     int divY = tabY + 132;
                     int subY = tabY + 145;
@@ -311,7 +311,6 @@ public class ConfigScreen extends Screen {
         context.drawCenteredTextWithShadow(textRenderer, Text.literal("Play Favs"), playFavsX + playBtnW / 2, y + 23, 0xFFFFFF);
         context.drawCenteredTextWithShadow(textRenderer, Text.literal("Play Local"), playLocalX + playBtnW / 2, y + 23, 0xFFFFFF);
 
-        // --- DRAW CONTROL DECK DIVIDER IN VISUAL TAB ---
         if (currentTab == 1 && config.bgEffect != SonicPulseConfig.BgEffect.OFF) {
             int divY = tabY + 132;
             context.fill(contentX, divY, contentX + contentW, divY + 1, 0x44FFFFFF);
