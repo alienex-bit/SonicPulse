@@ -11,8 +11,6 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import org.steve.sonicpulse.client.SonicPulseClient;
 import org.steve.sonicpulse.client.config.SonicPulseConfig;
-import java.util.ArrayList;
-import java.util.List;
 
 public class SonicPulseHud implements HudRenderCallback {
     
@@ -36,14 +34,10 @@ public class SonicPulseHud implements HudRenderCallback {
     private String marqueeCache = null;
     private int marqueeLenCache = 0;
 
-    // RADAR RIPPLE ENGINE LOGIC
-    private final List<Ripple> ripples = new ArrayList<>();
-    private long lastRippleTime = 0;
-    
-    private static class Ripple {
-        float x, y, radius, alpha;
-        Ripple(float x, float y) { this.x = x; this.y = y; this.radius = 1; this.alpha = 1.0f; }
-    }
+    private float baselineBass = 0;
+    private float pulseLerp = 0;
+    private float heatmapLerp = 0;
+    private float laserLerp = 0;
 
     private Text style(String text) {
         return Text.literal(text).setStyle(ROBOTO);
@@ -87,18 +81,25 @@ public class SonicPulseHud implements HudRenderCallback {
         context.fill(0, 0, ribbonWidth, ribbonHeight, cfg.skin.getBgColor());
 
         float[] vData = SonicPulseClient.getEngine().getVisualizerData();
+        int centerX = ribbonWidth / 2;
+
         if (vData != null && vData.length >= 16) {
             float bass = (vData[0] + vData[1] + vData[2]) / 3.0f;
+            
+            baselineBass += (bass - baselineBass) * 0.05f; 
+            float spike = Math.max(0, bass - (baselineBass * 0.9f));
 
-            if (cfg.bgEffect == SonicPulseConfig.BgEffect.BASS_PULSE) {
-                float intensity = bass * bass * 1.5f; 
-                int alpha = (int)(Math.min(intensity, 1.0f) * 140);
+            if (cfg.bgEffect == SonicPulseConfig.BgEffect.PULSE) {
+                float targetPulse = Math.min(spike * 12.0f, 1.0f);
+                pulseLerp += (targetPulse - pulseLerp) * 0.15f; 
+                
+                int alpha = (int)(pulseLerp * 180);
                 if (alpha > 5) {
-                    int topColor = ((alpha / 6) << 24) | (cfg.barColor & 0xFFFFFF);
+                    int topColor = ((alpha / 3) << 24) | (cfg.barColor & 0xFFFFFF);
                     int bottomColor = (alpha << 24) | (cfg.barColor & 0xFFFFFF);
                     context.fillGradient(0, 0, ribbonWidth, ribbonHeight, topColor, bottomColor);
                 }
-            } else if (cfg.bgEffect == SonicPulseConfig.BgEffect.RGB_AURA) {
+            } else if (cfg.bgEffect == SonicPulseConfig.BgEffect.AURA) {
                 float vol = 0;
                 for (int i = 0; i < 16; i++) vol += vData[i];
                 vol /= 16.0f;
@@ -123,13 +124,11 @@ public class SonicPulseHud implements HudRenderCallback {
                     
                     context.fillGradient(startX, 0, endX, ribbonHeight, topColor, bottomColor);
                 }
-            } else if (cfg.bgEffect == SonicPulseConfig.BgEffect.VHS_GLITCH) {
-                // 1. Static Scanlines
+            } else if (cfg.bgEffect == SonicPulseConfig.BgEffect.VHS) {
                 for (int y = 0; y < ribbonHeight; y += 2) {
                     context.fill(0, y, ribbonWidth, y + 1, 0x1A000000); 
                 }
-                // 2. Chromatic Aberration Hit
-                if (bass > 0.6f) {
+                if (spike > 0.1f) {
                     int glitchBands = (int)(Math.random() * 4) + 1;
                     for(int i = 0; i < glitchBands; i++) {
                         int ry = (int)(Math.random() * ribbonHeight);
@@ -139,24 +138,47 @@ public class SonicPulseHud implements HudRenderCallback {
                         context.fill(Math.max(0, -shift), ry + 1, Math.min(ribbonWidth, ribbonWidth - shift), ry + rh + 1, 0x3300AAFF);
                     }
                 }
-            } else if (cfg.bgEffect == SonicPulseConfig.BgEffect.KINETIC_RIPPLES) {
-                long now = System.currentTimeMillis();
-                if (bass > 0.65f && now - lastRippleTime > 350) {
-                    ripples.add(new Ripple(ribbonWidth / 2.0f, ribbonHeight / 2.0f));
-                    lastRippleTime = now;
+            } else if (cfg.bgEffect == SonicPulseConfig.BgEffect.HEATMAP) {
+                float vol = 0;
+                for (int i = 0; i < 16; i++) vol += vData[i];
+                vol /= 16.0f;
+
+                float targetVol = Math.min((vol + spike) * 3.5f, 1.0f);
+                heatmapLerp += (targetVol - heatmapLerp) * 0.1f;
+                
+                int numSlices = 30;
+                float sliceW = (ribbonWidth / 2.0f) / numSlices;
+                
+                for (int s = 0; s < numSlices; s++) {
+                    float pct = (float)s / numSlices; 
+                    float alphaPct = Math.max(0, 1.0f - (pct / Math.max(0.2f, heatmapLerp))); 
+                    if (alphaPct <= 0) continue;
+                    
+                    int a = (int)(alphaPct * 160);
+                    float hue = Math.max(0.0f, 0.65f - (bass * 0.8f * alphaPct));
+                    
+                    int rgb = java.awt.Color.HSBtoRGB(hue, 0.85f, 1.0f);
+                    int color = (a << 24) | (rgb & 0xFFFFFF);
+                    
+                    int lx = (int)(centerX - (s + 1) * sliceW);
+                    int rx = (int)(centerX + s * sliceW);
+                    context.fill(lx, 0, lx + (int)sliceW, ribbonHeight, color);
+                    context.fill(rx, 0, rx + (int)sliceW, ribbonHeight, color);
                 }
-                for (int i = ripples.size() - 1; i >= 0; i--) {
-                    Ripple r = ripples.get(i);
-                    r.radius += 2.0f;
-                    r.alpha -= 0.015f;
-                    if (r.alpha <= 0) {
-                        ripples.remove(i);
-                    } else {
-                        int a = (int)(r.alpha * 100);
-                        int col = (a << 24) | (cfg.barColor & 0xFFFFFF);
-                        context.drawBorder((int)(r.x - r.radius), (int)(r.y - r.radius), (int)(r.radius * 2), (int)(r.radius * 2), col);
-                    }
-                }
+            } else if (cfg.bgEffect == SonicPulseConfig.BgEffect.LASER) {
+                // CALIBRATED: Deep red, softer flash, no blinding white core
+                boolean isHit = spike > 0.08f; 
+                float targetLaser = isHit ? ribbonWidth : 2.0f;
+                laserLerp += (targetLaser - laserLerp) * (isHit ? 0.5f : 0.05f); 
+                
+                int halfW = (int)(laserLerp / 2);
+                
+                // Massively reduced alpha so it sits moody and deep behind the text
+                int alpha = isHit ? 0x44 : (int)(Math.max(0, 1.0f - (laserLerp / ribbonWidth)) * 30);
+                int color = (alpha << 24) | 0xFF0000; // Deep Laser Red
+                
+                context.fill(centerX - halfW, 0, centerX + halfW, ribbonHeight, color);
+                context.fill(centerX - 1, 0, centerX + 1, ribbonHeight, 0x66FF0000); // Softer red core instead of white
             }
         }
 
@@ -172,7 +194,7 @@ public class SonicPulseHud implements HudRenderCallback {
             case BAR_TRK_LOG: barsSlot=0; trackSlot=1; logoSlot=2; break;
         }
 
-        int leftX = 10, centerX = ribbonWidth / 2, rightX = ribbonWidth - 10;
+        int leftX = 10, rightX = ribbonWidth - 10;
         boolean playing = track != null;
 
         int logoW = textRenderer.getWidth(LOGO_TEXT);

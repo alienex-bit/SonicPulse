@@ -34,10 +34,20 @@ public class SonicPulseConfig {
 
     public enum SessionMode { NONE, FAVOURITES, HISTORY, LOCAL, RADIO }
     public enum VisualizerStyle { SOLID, FLOATING_PEAKS }
+    public enum BgEffect { OFF, PULSE, AURA, VHS, HEATMAP, LASER }
     
-    // VISUAL OVERDRIVE: Added the new bold effects!
-    public enum BgEffect { OFF, BASS_PULSE, RGB_AURA, VHS_GLITCH, KINETIC_RIPPLES }
-    
+    // --- CONTROL DECK TWEAK ENUMS ---
+    public enum PulseIntensity { SUBTLE, NORMAL, OVERDRIVE }
+    public enum PulseDecay { SNAPPY, FLUID }
+    public enum AuraSpeed { CHILL, NORMAL, WARP }
+    public enum AuraPalette { RAINBOW, MONOTONE }
+    public enum VhsGlitch { MINOR, HEAVY, CORRUPTED }
+    public enum VhsScanlines { FAINT, DARK, OFF }
+    public enum HeatmapScale { FIRE, PLASMA, TOXIC }
+    public enum HeatmapSpread { CONFINED, UNBOUND }
+    public enum LaserColor { SITH_RED, CYBER_CYAN, NEON_GREEN, UI_COLOR }
+    public enum LaserThickness { PRECISION, HEAVY }
+
     public enum RibbonLayout {
         LOG_TRK_BAR("Logo → Track → Bars"), 
         LOG_BAR_TRK("Logo → Bars → Track"), 
@@ -60,6 +70,18 @@ public class SonicPulseConfig {
     public String currentTitle = null, lastRadioUrl = "", localMusicPath = "";
     public List<HistoryEntry> history = new ArrayList<>();
     public boolean hudVisible = true, showLogo = true, showTrack = true, showBars = true;
+
+    // --- CONTROL DECK TWEAK SAVES ---
+    public PulseIntensity pulseIntensity = PulseIntensity.NORMAL;
+    public PulseDecay pulseDecay = PulseDecay.FLUID;
+    public AuraSpeed auraSpeed = AuraSpeed.NORMAL;
+    public AuraPalette auraPalette = AuraPalette.RAINBOW;
+    public VhsGlitch vhsGlitch = VhsGlitch.HEAVY;
+    public VhsScanlines vhsScanlines = VhsScanlines.FAINT;
+    public HeatmapScale heatmapScale = HeatmapScale.FIRE;
+    public HeatmapSpread heatmapSpread = HeatmapSpread.CONFINED;
+    public LaserColor laserColor = LaserColor.SITH_RED;
+    public LaserThickness laserThickness = LaserThickness.HEAVY;
 
     public static final int[] PALETTE = {
         0x00BFFF, 0x00CED1, 0x00FFC6, 0x32CD32, 0x7FFF00, 0xFFD300, 0xFFBF00, 0xFF8C00, 0xFF5F00, 
@@ -99,6 +121,18 @@ public class SonicPulseConfig {
     public void nextBgEffect() { bgEffect = BgEffect.values()[(bgEffect.ordinal() + 1) % BgEffect.values().length]; save(); }
     public void nextRibbonLayout() { ribbonLayout = RibbonLayout.values()[(ribbonLayout.ordinal() + 1) % RibbonLayout.values().length]; save(); }
 
+    // --- CONTROL DECK CYCLERS ---
+    public void nextPulseIntensity() { pulseIntensity = PulseIntensity.values()[(pulseIntensity.ordinal() + 1) % PulseIntensity.values().length]; save(); }
+    public void nextPulseDecay() { pulseDecay = PulseDecay.values()[(pulseDecay.ordinal() + 1) % PulseDecay.values().length]; save(); }
+    public void nextAuraSpeed() { auraSpeed = AuraSpeed.values()[(auraSpeed.ordinal() + 1) % AuraSpeed.values().length]; save(); }
+    public void nextAuraPalette() { auraPalette = AuraPalette.values()[(auraPalette.ordinal() + 1) % AuraPalette.values().length]; save(); }
+    public void nextVhsGlitch() { vhsGlitch = VhsGlitch.values()[(vhsGlitch.ordinal() + 1) % VhsGlitch.values().length]; save(); }
+    public void nextVhsScanlines() { vhsScanlines = VhsScanlines.values()[(vhsScanlines.ordinal() + 1) % VhsScanlines.values().length]; save(); }
+    public void nextHeatmapScale() { heatmapScale = HeatmapScale.values()[(heatmapScale.ordinal() + 1) % HeatmapScale.values().length]; save(); }
+    public void nextHeatmapSpread() { heatmapSpread = HeatmapSpread.values()[(heatmapSpread.ordinal() + 1) % HeatmapSpread.values().length]; save(); }
+    public void nextLaserColor() { laserColor = LaserColor.values()[(laserColor.ordinal() + 1) % LaserColor.values().length]; save(); }
+    public void nextLaserThickness() { laserThickness = LaserThickness.values()[(laserThickness.ordinal() + 1) % LaserThickness.values().length]; save(); }
+
     private static final File FILE = new File(MinecraftClient.getInstance().runDirectory, "config/sonicpulse.json");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static SonicPulseConfig instance;
@@ -108,8 +142,29 @@ public class SonicPulseConfig {
             if (FILE.exists()) { try (FileReader r = new FileReader(FILE)) { instance = GSON.fromJson(r, SonicPulseConfig.class); } catch (Exception e) { instance = new SonicPulseConfig(); } }
             else { instance = new SonicPulseConfig(); }
         }
+        
+        // Armor Plating
         if (instance.activeMode == null) instance.activeMode = SessionMode.NONE;
+        if (instance.bgEffect == null) instance.bgEffect = BgEffect.OFF;
+        if (instance.skin == null) instance.skin = Skin.DEFAULT;
+        if (instance.visStyle == null) instance.visStyle = VisualizerStyle.SOLID;
+        if (instance.ribbonLayout == null) instance.ribbonLayout = RibbonLayout.LOG_TRK_BAR;
+        if (instance.history == null) instance.history = new ArrayList<>();
+        
+        // Tweak Plating
+        if (instance.pulseIntensity == null) instance.pulseIntensity = PulseIntensity.NORMAL;
+        if (instance.pulseDecay == null) instance.pulseDecay = PulseDecay.FLUID;
+        if (instance.auraSpeed == null) instance.auraSpeed = AuraSpeed.NORMAL;
+        if (instance.auraPalette == null) instance.auraPalette = AuraPalette.RAINBOW;
+        if (instance.vhsGlitch == null) instance.vhsGlitch = VhsGlitch.HEAVY;
+        if (instance.vhsScanlines == null) instance.vhsScanlines = VhsScanlines.FAINT;
+        if (instance.heatmapScale == null) instance.heatmapScale = HeatmapScale.FIRE;
+        if (instance.heatmapSpread == null) instance.heatmapSpread = HeatmapSpread.CONFINED;
+        if (instance.laserColor == null) instance.laserColor = LaserColor.SITH_RED;
+        if (instance.laserThickness == null) instance.laserThickness = LaserThickness.HEAVY;
+
         return instance;
     }
+    
     public static void save() { try { FILE.getParentFile().mkdirs(); try (FileWriter w = new FileWriter(FILE)) { GSON.toJson(get(), w); } } catch (Exception e) { e.printStackTrace(); } }
 }
