@@ -29,11 +29,34 @@ public class ConfigScreen extends Screen {
     private boolean isShuffling = false;
     private int recentCount = 0;
 
+    private static final String CURRENT_VERSION = "1.3.4";
+    private static String fetchedVersion = null;
+    private static boolean updateChecked = false;
+
     public ConfigScreen() { 
         super(Text.literal("SonicPulse Config")); 
         for(int i=0; i<SonicPulseConfig.PALETTE.length; i++) { 
             if((0xFF000000 | SonicPulseConfig.PALETTE[i]) == (0xFF000000 | config.barColor)) colorIndex=i; 
             if((0xFF000000 | SonicPulseConfig.PALETTE[i]) == (0xFF000000 | config.titleColor)) titleColorIndex=i;
+        }
+
+        // --- ASYNC UPDATE CHECKER ---
+        if (!updateChecked) {
+            updateChecked = true;
+            new Thread(() -> {
+                try {
+                    // We pause for 1 second to simulate a network request to the Modrinth API
+                    Thread.sleep(1000); 
+                    
+                    // In the future, you swap this string with an actual URL text reader
+                    fetchedVersion = "1.3.4"; 
+                    
+                    // Force the UI to refresh to show the button if the screen is still open
+                    if (MinecraftClient.getInstance().currentScreen instanceof ConfigScreen) {
+                        MinecraftClient.getInstance().execute(this::refreshWidgets);
+                    }
+                } catch (Exception e) {}
+            }).start();
         }
     }
 
@@ -127,7 +150,6 @@ public class ConfigScreen extends Screen {
                 break;
             case 2: // LAYOUT
                 addDrawableChild(ButtonWidget.builder(Text.literal("Order: " + config.ribbonLayout.getDisplayName()), b -> { config.nextRibbonLayout(); refreshWidgets(); }).dimensions(contentX, y + 45, contentW, 20).build());
-                // UPDATED SLIDER MATH: Now ranges from 0.25 (25%) to 1.00 (100%)
                 addDrawableChild(new SliderWidget(contentX, y + 70, contentW, 20, Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%"), (config.hudScale - 0.25) / 0.75) { 
                     @Override protected void updateMessage() { setMessage(Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%")); } 
                     @Override protected void applyValue() { config.hudScale = (float)(0.25 + (value * 0.75)); SonicPulseConfig.save(); } 
@@ -213,6 +235,11 @@ public class ConfigScreen extends Screen {
                 if (localFiles.size() > localScrollOffset + 7) addDrawableChild(ButtonWidget.builder(Text.literal("▼"), b -> { localScrollOffset++; refreshWidgets(); }).dimensions(contentX + contentW - 12, y + 55 + 6 * rowH, 12, 18).build());
                 break;
             case 7: // ABOUT
+                if (fetchedVersion != null && !CURRENT_VERSION.equals(fetchedVersion)) {
+                    addDrawableChild(ButtonWidget.builder(Text.literal("§6⭐ UPDATE TO v" + fetchedVersion + " ⭐"), b -> {
+                        try { net.minecraft.util.Util.getOperatingSystem().open(java.net.URI.create("https://modrinth.com/mod/sonicpulse")); } catch (Exception e) {}
+                    }).dimensions(contentX + (contentW / 2) - 85, y + 160, 170, 20).tooltip(Tooltip.of(Text.literal("Opens Modrinth in your browser"))).build());
+                }
                 break;
         }
     }
@@ -356,11 +383,18 @@ public class ConfigScreen extends Screen {
         if (currentTab == 5 && radioUrlField != null) radioUrlField.render(context, mx, my, d);
 
         if (currentTab == 7) {
-            context.drawCenteredTextWithShadow(textRenderer, Text.literal("SONICPULSE - Created by Steve"), contentX + contentW/2, y + 35, 0xFFFF00FF);
-            context.drawCenteredTextWithShadow(textRenderer, Text.literal("Stream URLs, play local music, and vibe."), contentX + contentW/2, y + 55, 0xFFFFFFFF);
-            context.drawCenteredTextWithShadow(textRenderer, Text.literal("☕ Buy Steve a Coffee:"), contentX + contentW/2, y + 90, 0xFFFFFF00);
-            context.drawBorder(contentX + contentW/2 - 30, y + 110, 60, 60, 0xFFFF00FF);
-            context.drawCenteredTextWithShadow(textRenderer, Text.literal("QR HERE"), contentX + contentW/2, y + 136, 0x44FFFFFF);
+            context.drawCenteredTextWithShadow(textRenderer, Text.literal("SONICPULSE"), contentX + contentW/2, y + 45, 0xFFFF00FF);
+            context.drawCenteredTextWithShadow(textRenderer, Text.literal("Created by Steve"), contentX + contentW/2, y + 60, 0xFFFFFFFF);
+            context.drawCenteredTextWithShadow(textRenderer, Text.literal("Version: " + CURRENT_VERSION), contentX + contentW/2, y + 75, 0xAAAAAA);
+            context.drawCenteredTextWithShadow(textRenderer, Text.literal("Stream URLs, play local music, and vibe."), contentX + contentW/2, y + 105, 0xFFFFFFFF);
+            
+            if (fetchedVersion != null && !CURRENT_VERSION.equals(fetchedVersion)) {
+                context.drawCenteredTextWithShadow(textRenderer, Text.literal("§eA new update is available!"), contentX + contentW/2, y + 140, 0xFFFFFF);
+            } else if (fetchedVersion != null) {
+                context.drawCenteredTextWithShadow(textRenderer, Text.literal("§aYou are running the latest version!"), contentX + contentW/2, y + 140, 0xFFFFFF);
+            } else {
+                context.drawCenteredTextWithShadow(textRenderer, Text.literal("§7Checking for updates..."), contentX + contentW/2, y + 140, 0xFFFFFF);
+            }
         }
         
         context.drawBorder(x + 4, y + 27 + (currentTab * 22), SIDEBAR_WIDTH - 8, 22, ACTIVE_BORDER);
