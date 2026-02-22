@@ -16,7 +16,12 @@ public class SonicPulseConfig {
         VCR_OSD(0xFF000044, 0xFFFFFFFF, "VCR OSD"),
         CYBER_NOIR(0xFF000000, 0xFF00E8FF, "Cyber Noir"),
         MERMAID(0x9920948B, 0xFFBD93F9, "Mermaid"),
-        NEO_BRUTAL(0xFFBFFF00, 0xFF000000, "Neobrutalist");
+        NEO_BRUTAL(0xFFBFFF00, 0xFF000000, "Neobrutalist"),
+        SYNTHWAVE(0xDD110033, 0xFFFF00FF, "Synthwave"),
+        TERMINAL(0xFF000000, 0xFF00FF00, "Terminal"),
+        ROYAL_GOLD(0xEE222222, 0xFFFFD700, "Royal Gold"),
+        BLOOD_MOON(0xEE330000, 0xFFDC143C, "Blood Moon"),
+        GLACIER(0xDD001133, 0xFF00FFFF, "Glacier");
 
         private final int bgColor, borderColor;
         private final String name;
