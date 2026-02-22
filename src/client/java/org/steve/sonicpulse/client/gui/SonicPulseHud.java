@@ -6,7 +6,9 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.RenderTickCounter;
+import net.minecraft.text.Style;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 import org.steve.sonicpulse.client.SonicPulseClient;
 import org.steve.sonicpulse.client.config.SonicPulseConfig;
 
@@ -14,20 +16,34 @@ public class SonicPulseHud implements HudRenderCallback {
     
     private final float[] floatingPeaks = new float[16];
     
-    // OPTIMIZATION: Cache variables to prevent heavy string generation every single frame
-    private static final Text LOGO_TEXT = Text.literal("SONICPULSE ♫");
+    private static final Style ROBOTO = Style.EMPTY.withFont(Identifier.of("sonicpulse", "roboto"));
+    
+    private static final Text LOGO_TEXT = Text.empty()
+        .append(Text.literal("SONICPULSE ").setStyle(ROBOTO))
+        .append(Text.literal("♫"));
+    
     private AudioTrack cachedTrack = null;
-    private String cachedTag = "[ 🌐 WEB AUDIO ]";
     private int cachedTagColor = 0xFF00FFFF;
     
     private long cachedPosSeconds = -1;
-    private Text cachedTimeText = Text.literal("");
-    private Text cachedTagText = Text.literal("");
+    private Text cachedTimeText = Text.empty();
+    private Text cachedTagText = Text.empty();
     
     private String rawTrackNameCache = null;
     private String safeTrackNameCache = null;
     private String marqueeCache = null;
     private int marqueeLenCache = 0;
+
+    private Text style(String text) {
+        return Text.literal(text).setStyle(ROBOTO);
+    }
+
+    private Text buildTag(String icon, String name) {
+        return Text.empty()
+            .append(Text.literal("[ ").setStyle(ROBOTO))
+            .append(Text.literal(icon))
+            .append(Text.literal(" " + name + " ]").setStyle(ROBOTO));
+    }
 
     @Override
     public void onHudRender(DrawContext context, RenderTickCounter tickCounter) {
@@ -45,7 +61,7 @@ public class SonicPulseHud implements HudRenderCallback {
         if (!isPreview && client.currentScreen != null) return;
 
         AudioTrack track = SonicPulseClient.getEngine().getPlayer().getPlayingTrack();
-        if (track == null) return;
+        if (track == null && !isPreview) return;
 
         int screenW = client.getWindow().getScaledWidth();
         float scale = cfg.hudScale;
@@ -59,7 +75,6 @@ public class SonicPulseHud implements HudRenderCallback {
         
         context.fill(0, 0, ribbonWidth, ribbonHeight, cfg.skin.getBgColor());
 
-        // 2. --- REACTIVE BACKGROUND EFFECTS ---
         float[] vData = SonicPulseClient.getEngine().getVisualizerData();
         if (vData != null && vData.length >= 16) {
             if (cfg.bgEffect == SonicPulseConfig.BgEffect.BASS_PULSE) {
@@ -67,7 +82,6 @@ public class SonicPulseHud implements HudRenderCallback {
                 float intensity = bass * bass * 1.5f; 
                 int alpha = (int)(Math.min(intensity, 1.0f) * 140);
                 if (alpha > 5) {
-                    // Gradient: Fades from faint at the top to bright at the bottom (Stage Light effect)
                     int topColor = ((alpha / 6) << 24) | (cfg.barColor & 0xFFFFFF);
                     int bottomColor = (alpha << 24) | (cfg.barColor & 0xFFFFFF);
                     context.fillGradient(0, 0, ribbonWidth, ribbonHeight, topColor, bottomColor);
@@ -80,16 +94,14 @@ public class SonicPulseHud implements HudRenderCallback {
                 float time = (System.currentTimeMillis() % 12000) / 12000.0f; 
                 int alpha = 30 + (int)(Math.min(vol * 2.5f, 1.0f) * 110);
                 
-                // THE LIQUID WAVE: Slice the background into 24 strips to simulate a horizontal flowing gradient
                 int segments = 24;
                 float segWidth = (float) ribbonWidth / segments;
                 
                 for (int s = 0; s < segments; s++) {
                     int startX = (int)(s * segWidth);
                     int endX = (int)((s + 1) * segWidth);
-                    if (s == segments - 1) endX = ribbonWidth; // Ensure it reaches the exact edge
+                    if (s == segments - 1) endX = ribbonWidth;
                     
-                    // Add a horizontal offset (s * 0.25f) so the color ripples left-to-right
                     float wave = (float)Math.sin(time * Math.PI * 2 + (s * 0.25f));
                     float hue = 0.7f + (wave * 0.2f);
                     
@@ -115,33 +127,38 @@ public class SonicPulseHud implements HudRenderCallback {
         }
 
         int leftX = 10, centerX = ribbonWidth / 2, rightX = ribbonWidth - 10;
+        boolean playing = track != null;
+
+        // --- 1. LOGO & TAGS CALCULATION ---
+        int logoW = textRenderer.getWidth(LOGO_TEXT);
+        int logoDrawX = (logoSlot == 0) ? leftX : ((logoSlot == 1) ? centerX - (logoW / 2) : rightX - logoW);
+        
+        // Smart vertical centering: Drops down if no music is playing
+        int logoY = playing ? 6 : 14;
 
         if (cfg.showLogo) {
             int titleColor = cfg.titleColor | 0xFF000000;
-            int w = textRenderer.getWidth(LOGO_TEXT);
-            int drawX = (logoSlot == 0) ? leftX : ((logoSlot == 1) ? centerX - (w / 2) : rightX - w);
-            context.drawText(textRenderer, LOGO_TEXT, drawX, 14, titleColor, false);
+            context.drawText(textRenderer, LOGO_TEXT, logoDrawX, logoY, titleColor, false);
         }
 
-        if (cfg.showTrack) {
+        if (playing) {
             if (track != cachedTrack) {
                 cachedTrack = track;
                 String uri = track.getInfo().uri.toLowerCase();
                 boolean isLocal = uri.startsWith("file") || uri.matches("^[a-zA-Z]:\\\\.*");
                 
-                if (isLocal) { cachedTag = "[ 📁 LOCAL ]"; cachedTagColor = 0xFFFF00FF; }
+                if (isLocal) { cachedTagText = buildTag("📁", "LOCAL"); cachedTagColor = 0xFFFF00FF; }
                 else if (track.getInfo().isStream) {
-                    if (uri.contains("twitch.tv")) { cachedTag = "[ 📺 TWITCH ]"; cachedTagColor = 0xFFA020F0; }
-                    else if (uri.contains("youtube.com") || uri.contains("youtu.be")) { cachedTag = "[ 🔴 YT LIVE ]"; cachedTagColor = 0xFFFF0000; }
-                    else { cachedTag = "[ 📻 STREAM ]"; cachedTagColor = 0xFF00FFFF; }
+                    if (uri.contains("twitch.tv")) { cachedTagText = buildTag("📺", "TWITCH"); cachedTagColor = 0xFFA020F0; }
+                    else if (uri.contains("youtube.com") || uri.contains("youtu.be")) { cachedTagText = buildTag("🔴", "YT LIVE"); cachedTagColor = 0xFFFF0000; }
+                    else { cachedTagText = buildTag("📻", "STREAM"); cachedTagColor = 0xFF00FFFF; }
                 } else {
-                    if (uri.contains("youtube.com") || uri.contains("youtu.be")) { cachedTag = "[ ► YOUTUBE ]"; cachedTagColor = 0xFFFF0000; }
-                    else if (uri.contains("soundcloud.com")) { cachedTag = "[ ☁ SOUNDCLOUD ]"; cachedTagColor = 0xFFFFA500; }
-                    else if (uri.contains("bandcamp.com")) { cachedTag = "[ 🎧 BANDCAMP ]"; cachedTagColor = 0xFF00CED1; }
-                    else if (uri.contains("vimeo.com")) { cachedTag = "[ 🎬 VIMEO ]"; cachedTagColor = 0xFF1E90FF; }
-                    else { cachedTag = "[ 🌐 WEB AUDIO ]"; cachedTagColor = 0xFF00FFFF; }
+                    if (uri.contains("youtube.com") || uri.contains("youtu.be")) { cachedTagText = buildTag("►", "YOUTUBE"); cachedTagColor = 0xFFFF0000; }
+                    else if (uri.contains("soundcloud.com")) { cachedTagText = buildTag("☁", "SOUNDCLOUD"); cachedTagColor = 0xFFFFA500; }
+                    else if (uri.contains("bandcamp.com")) { cachedTagText = buildTag("🎧", "BANDCAMP"); cachedTagColor = 0xFF00CED1; }
+                    else if (uri.contains("vimeo.com")) { cachedTagText = buildTag("🎬", "VIMEO"); cachedTagColor = 0xFF1E90FF; }
+                    else { cachedTagText = buildTag("🌐", "WEB AUDIO"); cachedTagColor = 0xFF00FFFF; }
                 }
-                cachedTagText = Text.literal(cachedTag);
                 cachedPosSeconds = -1; 
             }
 
@@ -150,12 +167,19 @@ public class SonicPulseHud implements HudRenderCallback {
                 cachedPosSeconds = currentPosSec;
                 if (!track.getInfo().isStream) {
                     long dur = track.getDuration() / 1000;
-                    cachedTimeText = Text.literal(String.format("  %02d:%02d / %02d:%02d", currentPosSec/60, currentPosSec%60, dur/60, dur%60));
+                    cachedTimeText = style(String.format("  %02d:%02d / %02d:%02d", currentPosSec/60, currentPosSec%60, dur/60, dur%60));
                 } else {
-                    cachedTimeText = Text.literal("");
+                    cachedTimeText = style("");
                 }
             }
 
+            // Draw tags anchored exactly to the Logo position
+            context.drawText(textRenderer, cachedTagText, logoDrawX, 18, cachedTagColor, false);
+            context.drawText(textRenderer, cachedTimeText, logoDrawX + textRenderer.getWidth(cachedTagText), 18, 0xFFFFFFFF, false);
+        }
+
+        // --- 2. TRACK MAGNIFICATION CALCULATION ---
+        if (cfg.showTrack && playing) {
             String trackName = (cfg.currentTitle != null) ? cfg.currentTitle : track.getInfo().title;
             if (trackName != null) {
                 if (!trackName.equals(rawTrackNameCache)) {
@@ -166,23 +190,38 @@ public class SonicPulseHud implements HudRenderCallback {
                     marqueeLenCache = safeTrackNameCache.length() + spacer.length();
                 }
 
-                int textW = textRenderer.getWidth(safeTrackNameCache);
+                Text fullTitleText = style(safeTrackNameCache);
+                int unscaledTextW = textRenderer.getWidth(fullTitleText);
+                
+                // Vector scaling factor (35% larger)
+                float trackScale = 1.35f; 
+                int scaledTextW = (int)(unscaledTextW * trackScale);
+                
                 int maxW = (ribbonWidth / 3) - 20;
                 int drawX;
 
-                if (textW > maxW) {
+                if (scaledTextW > maxW) {
+                    int unscaledMaxW = (int)(maxW / trackScale);
                     int offset = (int)((System.currentTimeMillis() / 150) % marqueeLenCache);
                     String scrolled = marqueeCache.substring(offset);
-                    String finalDisplay = textRenderer.trimToWidth(scrolled, maxW);
+                    String finalDisplay = textRenderer.trimToWidth(scrolled, unscaledMaxW);
+                    
                     drawX = (trackSlot == 0) ? leftX : ((trackSlot == 1) ? centerX - (maxW / 2) : rightX - maxW);
-                    context.drawText(textRenderer, Text.literal(finalDisplay), drawX, 6, 0xFFFFFFFF, false);
+                    
+                    context.getMatrices().push();
+                    context.getMatrices().translate(drawX, 11, 0); // Y=11 perfectly centers the scaled font in the ribbon
+                    context.getMatrices().scale(trackScale, trackScale, 1.0f);
+                    context.drawText(textRenderer, style(finalDisplay), 0, 0, 0xFFFFFFFF, false);
+                    context.getMatrices().pop();
                 } else {
-                    drawX = (trackSlot == 0) ? leftX : ((trackSlot == 1) ? centerX - (textW / 2) : rightX - textW);
-                    context.drawText(textRenderer, Text.literal(safeTrackNameCache), drawX, 6, 0xFFFFFFFF, false);
+                    drawX = (trackSlot == 0) ? leftX : ((trackSlot == 1) ? centerX - (scaledTextW / 2) : rightX - scaledTextW);
+                    
+                    context.getMatrices().push();
+                    context.getMatrices().translate(drawX, 11, 0);
+                    context.getMatrices().scale(trackScale, trackScale, 1.0f);
+                    context.drawText(textRenderer, fullTitleText, 0, 0, 0xFFFFFFFF, false);
+                    context.getMatrices().pop();
                 }
-
-                context.drawText(textRenderer, cachedTagText, drawX, 18, cachedTagColor, false);
-                context.drawText(textRenderer, cachedTimeText, drawX + textRenderer.getWidth(cachedTagText), 18, 0xFFFFFFFF, false);
             }
         }
 
