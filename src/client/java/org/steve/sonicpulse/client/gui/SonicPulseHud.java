@@ -11,6 +11,8 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import org.steve.sonicpulse.client.SonicPulseClient;
 import org.steve.sonicpulse.client.config.SonicPulseConfig;
+import java.util.ArrayList;
+import java.util.List;
 
 public class SonicPulseHud implements HudRenderCallback {
     
@@ -33,6 +35,15 @@ public class SonicPulseHud implements HudRenderCallback {
     private String safeTrackNameCache = null;
     private String marqueeCache = null;
     private int marqueeLenCache = 0;
+
+    // RADAR RIPPLE ENGINE LOGIC
+    private final List<Ripple> ripples = new ArrayList<>();
+    private long lastRippleTime = 0;
+    
+    private static class Ripple {
+        float x, y, radius, alpha;
+        Ripple(float x, float y) { this.x = x; this.y = y; this.radius = 1; this.alpha = 1.0f; }
+    }
 
     private Text style(String text) {
         return Text.literal(text).setStyle(ROBOTO);
@@ -77,8 +88,9 @@ public class SonicPulseHud implements HudRenderCallback {
 
         float[] vData = SonicPulseClient.getEngine().getVisualizerData();
         if (vData != null && vData.length >= 16) {
+            float bass = (vData[0] + vData[1] + vData[2]) / 3.0f;
+
             if (cfg.bgEffect == SonicPulseConfig.BgEffect.BASS_PULSE) {
-                float bass = (vData[0] + vData[1] + vData[2]) / 3.0f;
                 float intensity = bass * bass * 1.5f; 
                 int alpha = (int)(Math.min(intensity, 1.0f) * 140);
                 if (alpha > 5) {
@@ -111,6 +123,40 @@ public class SonicPulseHud implements HudRenderCallback {
                     
                     context.fillGradient(startX, 0, endX, ribbonHeight, topColor, bottomColor);
                 }
+            } else if (cfg.bgEffect == SonicPulseConfig.BgEffect.VHS_GLITCH) {
+                // 1. Static Scanlines
+                for (int y = 0; y < ribbonHeight; y += 2) {
+                    context.fill(0, y, ribbonWidth, y + 1, 0x1A000000); 
+                }
+                // 2. Chromatic Aberration Hit
+                if (bass > 0.6f) {
+                    int glitchBands = (int)(Math.random() * 4) + 1;
+                    for(int i = 0; i < glitchBands; i++) {
+                        int ry = (int)(Math.random() * ribbonHeight);
+                        int rh = (int)(Math.random() * 6) + 2;
+                        int shift = (int)(Math.random() * 20) - 10;
+                        context.fill(Math.max(0, shift), ry, Math.min(ribbonWidth, ribbonWidth + shift), ry + rh, 0x33FF0055);
+                        context.fill(Math.max(0, -shift), ry + 1, Math.min(ribbonWidth, ribbonWidth - shift), ry + rh + 1, 0x3300AAFF);
+                    }
+                }
+            } else if (cfg.bgEffect == SonicPulseConfig.BgEffect.KINETIC_RIPPLES) {
+                long now = System.currentTimeMillis();
+                if (bass > 0.65f && now - lastRippleTime > 350) {
+                    ripples.add(new Ripple(ribbonWidth / 2.0f, ribbonHeight / 2.0f));
+                    lastRippleTime = now;
+                }
+                for (int i = ripples.size() - 1; i >= 0; i--) {
+                    Ripple r = ripples.get(i);
+                    r.radius += 2.0f;
+                    r.alpha -= 0.015f;
+                    if (r.alpha <= 0) {
+                        ripples.remove(i);
+                    } else {
+                        int a = (int)(r.alpha * 100);
+                        int col = (a << 24) | (cfg.barColor & 0xFFFFFF);
+                        context.drawBorder((int)(r.x - r.radius), (int)(r.y - r.radius), (int)(r.radius * 2), (int)(r.radius * 2), col);
+                    }
+                }
             }
         }
 
@@ -129,11 +175,9 @@ public class SonicPulseHud implements HudRenderCallback {
         int leftX = 10, centerX = ribbonWidth / 2, rightX = ribbonWidth - 10;
         boolean playing = track != null;
 
-        // --- 1. LOGO & TAGS CALCULATION ---
         int logoW = textRenderer.getWidth(LOGO_TEXT);
         int logoDrawX = (logoSlot == 0) ? leftX : ((logoSlot == 1) ? centerX - (logoW / 2) : rightX - logoW);
         
-        // Smart vertical centering: Drops down if no music is playing
         int logoY = playing ? 6 : 14;
 
         if (cfg.showLogo) {
@@ -173,12 +217,10 @@ public class SonicPulseHud implements HudRenderCallback {
                 }
             }
 
-            // Draw tags anchored exactly to the Logo position
             context.drawText(textRenderer, cachedTagText, logoDrawX, 18, cachedTagColor, false);
             context.drawText(textRenderer, cachedTimeText, logoDrawX + textRenderer.getWidth(cachedTagText), 18, 0xFFFFFFFF, false);
         }
 
-        // --- 2. TRACK MAGNIFICATION CALCULATION ---
         if (cfg.showTrack && playing) {
             String trackName = (cfg.currentTitle != null) ? cfg.currentTitle : track.getInfo().title;
             if (trackName != null) {
@@ -193,7 +235,6 @@ public class SonicPulseHud implements HudRenderCallback {
                 Text fullTitleText = style(safeTrackNameCache);
                 int unscaledTextW = textRenderer.getWidth(fullTitleText);
                 
-                // Vector scaling factor (35% larger)
                 float trackScale = 1.35f; 
                 int scaledTextW = (int)(unscaledTextW * trackScale);
                 
@@ -209,7 +250,7 @@ public class SonicPulseHud implements HudRenderCallback {
                     drawX = (trackSlot == 0) ? leftX : ((trackSlot == 1) ? centerX - (maxW / 2) : rightX - maxW);
                     
                     context.getMatrices().push();
-                    context.getMatrices().translate(drawX, 11, 0); // Y=11 perfectly centers the scaled font in the ribbon
+                    context.getMatrices().translate(drawX, 11, 0); 
                     context.getMatrices().scale(trackScale, trackScale, 1.0f);
                     context.drawText(textRenderer, style(finalDisplay), 0, 0, 0xFFFFFFFF, false);
                     context.getMatrices().pop();

@@ -62,7 +62,6 @@ public class ConfigScreen extends Screen {
             }).dimensions(x + 5, y + 38 + (i * 22), SIDEBAR_WIDTH - 10, 20).build());
         }
 
-        // RIGHT-ALIGNED GREEN SHADED QUICK-START BUTTONS (AUTO-SWITCH TABS)
         int playBtnW = 65;
         int playLocalX = x + BOX_WIDTH - playBtnW - 8;
         int playFavsX = playLocalX - playBtnW - 5;
@@ -70,7 +69,7 @@ public class ConfigScreen extends Screen {
         addDrawableChild(ButtonWidget.builder(Text.literal(""), b -> { 
             config.activeMode = SonicPulseConfig.SessionMode.FAVOURITES; SonicPulseConfig.save(); 
             if(!config.getFavoriteHistory().isEmpty()) { SonicPulseConfig.HistoryEntry e = config.getFavoriteHistory().get(0); SonicPulseClient.getEngine().playTrack(e.url, e.label, e.type); }
-            currentTab = 4; // Switch to FAVS tab
+            currentTab = 4;
             refreshWidgets(); 
         }).dimensions(playFavsX, y + 20, playBtnW, 13).build());
         
@@ -78,7 +77,7 @@ public class ConfigScreen extends Screen {
             config.activeMode = SonicPulseConfig.SessionMode.LOCAL; SonicPulseConfig.save(); 
             if(localFiles.isEmpty()) scanLocalFiles(); 
             if(!localFiles.isEmpty()) { File fl = localFiles.get(0); SonicPulseClient.getEngine().playTrack(fl.getAbsolutePath(), fl.getName(), "Local"); }
-            currentTab = 6; // Switch to LOCAL tab
+            currentTab = 6; 
             refreshWidgets(); 
         }).dimensions(playLocalX, y + 20, playBtnW, 13).build());
 
@@ -108,7 +107,10 @@ public class ConfigScreen extends Screen {
                 addDrawableChild(ButtonWidget.builder(Text.literal("Skin: " + config.skin.getName()), b -> { config.nextSkin(); refreshWidgets(); }).dimensions(contentX, tabY + 30, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Logo: " + (config.showLogo ? "ON" : "OFF")), b -> { config.showLogo = !config.showLogo; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, tabY + 55, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Track: " + (config.showTrack ? "ON" : "OFF")), b -> { config.showTrack = !config.showTrack; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, tabY + 80, colW, 20).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("BG: " + config.bgEffect.name().replace("_", " ")), b -> { config.nextBgEffect(); refreshWidgets(); }).dimensions(contentX, tabY + 105, colW, 20).build());
+                
+                // RENAMED BUTTON: HUD Effect instead of BG
+                addDrawableChild(ButtonWidget.builder(Text.literal("HUD Effect: " + config.bgEffect.name().replace("_", " ")), b -> { config.nextBgEffect(); refreshWidgets(); }).dimensions(contentX, tabY + 105, colW, 20).build());
+                
                 addDrawableChild(ButtonWidget.builder(Text.literal("Style: " + config.visStyle.name().replace("_", " ")), b -> { config.nextVisStyle(); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 5, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Bar: " + SonicPulseConfig.COLOR_NAMES[colorIndex]), b -> { colorIndex = (colorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setColor(SonicPulseConfig.PALETTE[colorIndex]); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 30, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Hud Title: " + SonicPulseConfig.COLOR_NAMES[titleColorIndex]), b -> { titleColorIndex = (titleColorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setTitleColor(SonicPulseConfig.PALETTE[titleColorIndex]); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 55, colW, 20).build());
@@ -162,7 +164,6 @@ public class ConfigScreen extends Screen {
                 int btnW = 120;
                 int btnX = contentX + (contentW - btnW) / 2;
                 addDrawableChild(ButtonWidget.builder(Text.literal("Choose Folder"), b -> pickFolder()).dimensions(btnX, tabY + 5, btnW, 16).build());
-                
                 for (int i = localScrollOffset; i < Math.min(localFiles.size(), localScrollOffset + 7); i++) {
                     final int lIdx = i; File fl = localFiles.get(lIdx);
                     int rY = tabY + 26 + ((lIdx - localScrollOffset) * rowH);
@@ -284,7 +285,6 @@ public class ConfigScreen extends Screen {
         
         context.drawBorder(x + 4, y + 37 + (currentTab * 22), SIDEBAR_WIDTH - 8, 22, ACTIVE_BORDER);
 
-        // GREEN SHADING FOR RIGHT-ALIGNED PLAY BUTTONS
         int playBtnW = 65;
         int playLocalX = x + BOX_WIDTH - playBtnW - 8;
         int playFavsX = playLocalX - playBtnW - 5;
@@ -293,11 +293,10 @@ public class ConfigScreen extends Screen {
         context.drawCenteredTextWithShadow(textRenderer, Text.literal("Play Favs"), playFavsX + playBtnW / 2, y + 23, 0xFFFFFF);
         context.drawCenteredTextWithShadow(textRenderer, Text.literal("Play Local"), playLocalX + playBtnW / 2, y + 23, 0xFFFFFF);
 
-        // DRAW ACTIVE TRACK HIGHLIGHT
         AudioTrack playingTrack = SonicPulseClient.getEngine().getPlayer().getPlayingTrack();
         String activeUri = playingTrack != null ? playingTrack.getInfo().uri : null;
         if (activeUri != null) {
-            int highlightColor = 0xFF55FF55; // Lime Green
+            int highlightColor = 0xFF55FF55;
             if (currentTab == 3) {
                 List<SonicPulseConfig.HistoryEntry> hSorted = config.history.stream().filter(e -> !e.favorite).sorted(Comparator.comparingLong((SonicPulseConfig.HistoryEntry e) -> e.lastPlayed).reversed()).limit(20).collect(Collectors.toList());
                 for (int i = historyScrollOffset; i < Math.min(hSorted.size(), historyScrollOffset + 7); i++) {

@@ -34,7 +34,10 @@ public class SonicPulseConfig {
 
     public enum SessionMode { NONE, FAVOURITES, HISTORY, LOCAL, RADIO }
     public enum VisualizerStyle { SOLID, FLOATING_PEAKS }
-    public enum BgEffect { OFF, BASS_PULSE, RGB_AURA }
+    
+    // VISUAL OVERDRIVE: Added the new bold effects!
+    public enum BgEffect { OFF, BASS_PULSE, RGB_AURA, VHS_GLITCH, KINETIC_RIPPLES }
+    
     public enum RibbonLayout {
         LOG_TRK_BAR("Logo → Track → Bars"), 
         LOG_BAR_TRK("Logo → Bars → Track"), 
@@ -77,10 +80,7 @@ public class SonicPulseConfig {
     public void addHistory(String type, String label, String url) {
         HistoryEntry entry = history.stream().filter(e -> e.url.equals(url)).findFirst().orElse(null);
         if (entry != null) {
-            // ARMOR PLATING: Never overwrite a custom name if it's saved in Favorites
-            if (!entry.favorite) {
-                entry.label = label; 
-            }
+            if (!entry.favorite) { entry.label = label; }
             entry.lastPlayed = System.currentTimeMillis();
             if (!entry.favorite) { history.remove(entry); history.add(0, entry); }
         } else {
