@@ -77,7 +77,11 @@ public class SonicPulseConfig {
     public void addHistory(String type, String label, String url) {
         HistoryEntry entry = history.stream().filter(e -> e.url.equals(url)).findFirst().orElse(null);
         if (entry != null) {
-            entry.label = label; entry.lastPlayed = System.currentTimeMillis();
+            // ARMOR PLATING: Never overwrite a custom name if it's saved in Favorites
+            if (!entry.favorite) {
+                entry.label = label; 
+            }
+            entry.lastPlayed = System.currentTimeMillis();
             if (!entry.favorite) { history.remove(entry); history.add(0, entry); }
         } else {
             history.add(0, new HistoryEntry(type, label, url));
