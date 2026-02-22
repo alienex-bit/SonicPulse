@@ -8,7 +8,9 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.SliderWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.gui.tooltip.Tooltip;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.Util;
 import org.steve.sonicpulse.client.SonicPulseClient;
 import org.steve.sonicpulse.client.config.SonicPulseConfig;
@@ -26,6 +28,7 @@ import java.util.stream.Collectors;
 
 public class ConfigScreen extends Screen {
     private static final int BOX_WIDTH = 360, BOX_HEIGHT = 220, SIDEBAR_WIDTH = 75, ACTIVE_BORDER = 0xFFFF00FF;
+    private static final Identifier QR_CODE = Identifier.of("sonicpulse", "textures/coffee_qr.png");
     private TextFieldWidget urlField, radioUrlField, renameField;
     private final SonicPulseConfig config = SonicPulseConfig.get();
     private int currentTab = 0, colorIndex = 0, titleColorIndex = 0, radioScrollOffset = 0, historyScrollOffset = 0, favScrollOffset = 0, localScrollOffset = 0;
@@ -114,9 +117,8 @@ public class ConfigScreen extends Screen {
                     if (renamingEntry != null && renamingEntry.url.equals(e.url)) {
                         renameField = new TextFieldWidget(textRenderer, contentX + 20, rY, contentW - 40, rowH, Text.literal("")); renameField.setText(e.label); renameField.setFocused(true); addDrawableChild(renameField);
                         addDrawableChild(ButtonWidget.builder(Text.literal("✔"), b -> { 
-                            e.label = renameField.getText(); 
-                            AudioTrack cur = SonicPulseClient.getEngine().getPlayer().getPlayingTrack();
-                            if (cur != null && cur.getInfo().uri.equals(e.url)) { config.currentTitle = e.label; }
+                            e.label = renameField.getText(); AudioTrack cur = SonicPulseClient.getEngine().getPlayer().getPlayingTrack();
+                            if (cur != null && cur.getInfo().uri.equals(e.url)) config.currentTitle = e.label;
                             renamingEntry = null; SonicPulseConfig.save(); refreshWidgets(); 
                         }).dimensions(contentX + contentW - 18, rY, 18, rowH).build());
                     } else {
@@ -151,15 +153,7 @@ public class ConfigScreen extends Screen {
 
     private void pickFolder() {
         if (Util.getOperatingSystem() == Util.OperatingSystem.WINDOWS) {
-            new Thread(() -> {
-                try {
-                    ProcessBuilder pb = new ProcessBuilder("powershell.exe", "-NoProfile", "-Command", "Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.FolderBrowserDialog; if($f.ShowDialog() -eq 'OK') { $f.SelectedPath }");
-                    Process p = pb.start();
-                    BufferedReader rd = new BufferedReader(new InputStreamReader(p.getInputStream()));
-                    String path = rd.readLine();
-                    if (path != null && !path.trim().isEmpty()) { config.localMusicPath = path.trim(); SonicPulseConfig.save(); MinecraftClient.getInstance().execute(this::scanLocalFiles); MinecraftClient.getInstance().execute(this::refreshWidgets); }
-                } catch (Exception e) {}
-            }).start();
+            new Thread(() -> { try { ProcessBuilder pb = new ProcessBuilder("powershell.exe", "-NoProfile", "-Command", "Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.FolderBrowserDialog; if($f.ShowDialog() -eq 'OK') { $f.SelectedPath }"); Process p = pb.start(); BufferedReader rd = new BufferedReader(new InputStreamReader(p.getInputStream())); String path = rd.readLine(); if (path != null && !path.trim().isEmpty()) { config.localMusicPath = path.trim(); SonicPulseConfig.save(); MinecraftClient.getInstance().execute(this::scanLocalFiles); MinecraftClient.getInstance().execute(this::refreshWidgets); } } catch (Exception e) {} }).start();
         }
     }
 
@@ -178,13 +172,8 @@ public class ConfigScreen extends Screen {
     }
 
     private void scanLocalFiles() {
-        localFiles.clear(); 
-        String path = config.localMusicPath.isEmpty() ? MinecraftClient.getInstance().runDirectory.toPath().resolve("sonicpulse").resolve("music").toString() : config.localMusicPath;
-        File dr = new File(path);
-        if (dr.exists() && dr.isDirectory()) { 
-            File[] fls = dr.listFiles((d, n) -> { String nm = n.toLowerCase(); return nm.endsWith(".mp3") || nm.endsWith(".wav") || nm.endsWith(".flac"); }); 
-            if (fls != null) Collections.addAll(localFiles, fls); 
-        }
+        localFiles.clear(); String path = config.localMusicPath.isEmpty() ? MinecraftClient.getInstance().runDirectory.toPath().resolve("sonicpulse").resolve("music").toString() : config.localMusicPath;
+        File dr = new File(path); if (dr.exists() && dr.isDirectory()) { File[] fls = dr.listFiles((d, n) -> { String nm = n.toLowerCase(); return nm.endsWith(".mp3") || nm.endsWith(".wav") || nm.endsWith(".flac"); }); if (fls != null) Collections.addAll(localFiles, fls); }
     }
 
     private void loadRadioM3U(String radioInput) {
@@ -234,9 +223,16 @@ public class ConfigScreen extends Screen {
             context.drawText(textRenderer, Text.literal("§aRecently Streamed:"), contentX, tabY + 105, 0xFFFFFFFF, false);
         }
         if (currentTab == 7) {
-            int cx = contentX + (BOX_WIDTH - SIDEBAR_WIDTH - 20)/2;
-            context.drawCenteredTextWithShadow(textRenderer, Text.literal("SONICPULSE"), cx, tabY + 10, 0xFFFF00FF);
-            context.drawCenteredTextWithShadow(textRenderer, Text.literal("Version: " + CURRENT_VERSION), cx, tabY + 25, 0xAAAAAA);
+            int centerX = contentX + (contentW / 2);
+            context.drawCenteredTextWithShadow(textRenderer, Text.literal("§l§nSONICPULSE"), centerX, tabY + 5, 0xFFFF00FF);
+            context.drawCenteredTextWithShadow(textRenderer, Text.literal("Professional Media Control Unit"), centerX, tabY + 18, 0xAAAAAA);
+            context.drawCenteredTextWithShadow(textRenderer, Text.literal("Created by: §bSteve Watkins"), centerX, tabY + 40, 0xFFFFFFFF);
+            
+            // ACTUAL QR CODE TEXTURE FIXED
+            context.drawTexture(RenderLayer::getGuiTextured, QR_CODE, centerX - 25, tabY + 55, 0, 0, 50, 50, 50, 50);
+            
+            context.drawCenteredTextWithShadow(textRenderer, Text.literal("§7Enjoying the vibes? Buy Steve a coffee!"), centerX, tabY + 110, 0xAAFFFFFF);
+            context.drawCenteredTextWithShadow(textRenderer, Text.literal("§fVersion " + CURRENT_VERSION + " | Up to Date"), centerX, y + BOX_HEIGHT - 15, 0xFFFFFFFF); // Brightened version footer
         }
         hudRenderer.render(context, true, 0, 0);
     }
