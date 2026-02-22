@@ -52,7 +52,7 @@ public class SonicPulseClient implements ClientModInitializer {
     public static SonicPulseEngine getEngine() { return engine; }
     private void setupAssetDirectory() {
         try {
-            Path dir = MinecraftClient.getInstance().runDirectory.toPath().resolve("sonicpulse/music");
+            Path dir = MinecraftClient.getInstance().runDirectory.toPath().resolve("sonicpulse").resolve("music");
             if (!Files.exists(dir)) Files.createDirectories(dir);
         } catch (Exception e) { LOGGER.error("Failed to create asset directory", e); }
     }

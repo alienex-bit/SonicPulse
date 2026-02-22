@@ -34,15 +34,12 @@ public class SonicPulseEngine {
     public void playTrack(String url, String label, String type) { 
         pending = true;
         output.start();
-        
-        // FIXED: Use provided label immediately. Fallback to filename/URL only if label is null.
         String finalLabel = (label != null && !label.isEmpty()) ? label : url;
         if (finalLabel.equals(url)) {
             if (url.contains("/") || url.contains("\\")) {
                 finalLabel = url.substring(Math.max(url.lastIndexOf("/"), url.lastIndexOf("\\")) + 1);
             }
         }
-        
         SonicPulseConfig.get().currentTitle = finalLabel;
         SonicPulseConfig.get().addHistory(type, finalLabel, url);
         manager.loadItem(url, new TrackLoadHandler(player, this)); 
