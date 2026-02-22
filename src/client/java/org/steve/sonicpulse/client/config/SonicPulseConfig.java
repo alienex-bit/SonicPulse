@@ -35,14 +35,12 @@ public class SonicPulseConfig {
     public enum SessionMode { NONE, FAVOURITES, HISTORY, LOCAL, RADIO }
     public enum VisualizerStyle { SOLID, FLOATING_PEAKS }
     
-    // LASER REMOVED
     public enum BgEffect { OFF, PULSE, AURA, VHS, HEATMAP }
     
-    // --- CONTROL DECK TWEAK ENUMS ---
     public enum PulseIntensity { SUBTLE, NORMAL, OVERDRIVE }
     public enum PulseDecay { SNAPPY, FLUID }
     public enum AuraSpeed { CHILL, NORMAL, WARP }
-    public enum AuraPalette { RAINBOW, AURORA } // UPGRADED TO AURORA
+    public enum AuraPalette { RAINBOW, AURORA } 
     public enum VhsGlitch { MINOR, HEAVY, CORRUPTED }
     public enum VhsScanlines { FAINT, DARK, OFF }
     public enum HeatmapScale { FIRE, PLASMA, TOXIC }
@@ -69,7 +67,9 @@ public class SonicPulseConfig {
     public RibbonLayout ribbonLayout = RibbonLayout.LOG_TRK_BAR;
     public String currentTitle = null, lastRadioUrl = "", localMusicPath = "";
     public List<HistoryEntry> history = new ArrayList<>();
-    public boolean hudVisible = true, showLogo = true, showTrack = true, showBars = true;
+    
+    // --- MASTER TOGGLES ---
+    public boolean hudVisible = true, showLogo = true, showTrack = true, showBars = true, showTooltips = true;
 
     // --- CONTROL DECK TWEAK SAVES ---
     public PulseIntensity pulseIntensity = PulseIntensity.NORMAL;
@@ -119,7 +119,6 @@ public class SonicPulseConfig {
     public void nextBgEffect() { bgEffect = BgEffect.values()[(bgEffect.ordinal() + 1) % BgEffect.values().length]; save(); }
     public void nextRibbonLayout() { ribbonLayout = RibbonLayout.values()[(ribbonLayout.ordinal() + 1) % RibbonLayout.values().length]; save(); }
 
-    // --- CONTROL DECK CYCLERS ---
     public void nextPulseIntensity() { pulseIntensity = PulseIntensity.values()[(pulseIntensity.ordinal() + 1) % PulseIntensity.values().length]; save(); }
     public void nextPulseDecay() { pulseDecay = PulseDecay.values()[(pulseDecay.ordinal() + 1) % PulseDecay.values().length]; save(); }
     public void nextAuraSpeed() { auraSpeed = AuraSpeed.values()[(auraSpeed.ordinal() + 1) % AuraSpeed.values().length]; save(); }
