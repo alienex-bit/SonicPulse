@@ -8,7 +8,9 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.SliderWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.gui.tooltip.Tooltip;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 import org.steve.sonicpulse.client.SonicPulseClient;
 import org.steve.sonicpulse.client.config.SonicPulseConfig;
 import org.steve.sonicpulse.client.gui.SonicPulseHud;
@@ -40,18 +42,12 @@ public class ConfigScreen extends Screen {
             if((0xFF000000 | SonicPulseConfig.PALETTE[i]) == (0xFF000000 | config.titleColor)) titleColorIndex=i;
         }
 
-        // --- ASYNC UPDATE CHECKER ---
         if (!updateChecked) {
             updateChecked = true;
             new Thread(() -> {
                 try {
-                    // We pause for 1 second to simulate a network request to the Modrinth API
                     Thread.sleep(1000); 
-                    
-                    // In the future, you swap this string with an actual URL text reader
                     fetchedVersion = "1.3.4"; 
-                    
-                    // Force the UI to refresh to show the button if the screen is still open
                     if (MinecraftClient.getInstance().currentScreen instanceof ConfigScreen) {
                         MinecraftClient.getInstance().execute(this::refreshWidgets);
                     }
@@ -106,7 +102,7 @@ public class ConfigScreen extends Screen {
         int rowH = 19, listVisibleCount = 9, colW = (contentW / 2) - 5;
 
         switch (currentTab) {
-            case 0: // REMOTE
+            case 0: 
                 urlField = new TextFieldWidget(textRenderer, contentX, y + 55, contentW, 20, Text.literal("URL"));
                 urlField.setMaxLength(1024); addSelectableChild(urlField);
                 addDrawableChild(ButtonWidget.builder(Text.literal("LOAD & PLAY URL"), b -> { 
@@ -135,7 +131,7 @@ public class ConfigScreen extends Screen {
                     }
                 }
                 break;
-            case 1: // VISUALS
+            case 1: 
                 addDrawableChild(ButtonWidget.builder(Text.literal("HUD: " + (config.hudVisible ? "VISIBLE" : "HIDDEN")), b -> { config.hudVisible = !config.hudVisible; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, y + 50, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Skin: " + config.skin.getName()), b -> { config.nextSkin(); refreshWidgets(); }).dimensions(contentX, y + 75, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Logo: " + (config.showLogo ? "ON" : "OFF")), b -> { config.showLogo = !config.showLogo; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, y + 100, colW, 20).build());
@@ -148,14 +144,14 @@ public class ConfigScreen extends Screen {
                 addDrawableChild(ButtonWidget.builder(Text.literal("Hud Title: " + SonicPulseConfig.COLOR_NAMES[titleColorIndex]), b -> { titleColorIndex = (titleColorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setTitleColor(SonicPulseConfig.PALETTE[titleColorIndex]); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 100, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Bars: " + (config.showBars ? "ON" : "OFF")), b -> { config.showBars = !config.showBars; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 125, colW, 20).build());
                 break;
-            case 2: // LAYOUT
+            case 2: 
                 addDrawableChild(ButtonWidget.builder(Text.literal("Order: " + config.ribbonLayout.getDisplayName()), b -> { config.nextRibbonLayout(); refreshWidgets(); }).dimensions(contentX, y + 45, contentW, 20).build());
                 addDrawableChild(new SliderWidget(contentX, y + 70, contentW, 20, Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%"), (config.hudScale - 0.25) / 0.75) { 
                     @Override protected void updateMessage() { setMessage(Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%")); } 
                     @Override protected void applyValue() { config.hudScale = (float)(0.25 + (value * 0.75)); SonicPulseConfig.save(); } 
                 });
                 break;
-            case 3: // HISTORY
+            case 3: 
                 List<SonicPulseConfig.HistoryEntry> historyOnly = config.history.stream().filter(e -> !e.favorite).toList();
                 addDrawableChild(ButtonWidget.builder(Text.literal("§cClear History"), b -> { config.history.removeIf(e -> !e.favorite); SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, y + 32, contentW, 16).build());
                 for (int i = historyScrollOffset; i < Math.min(historyOnly.size(), historyScrollOffset + 8); i++) {
@@ -168,7 +164,7 @@ public class ConfigScreen extends Screen {
                 if (historyScrollOffset > 0) addDrawableChild(ButtonWidget.builder(Text.literal("▲"), b -> { historyScrollOffset--; refreshWidgets(); }).dimensions(contentX + contentW + 2, y + 51, 12, 18).build());
                 if (historyOnly.size() > historyScrollOffset + 8) addDrawableChild(ButtonWidget.builder(Text.literal("▼"), b -> { historyScrollOffset++; refreshWidgets(); }).dimensions(contentX + contentW + 2, y + 51 + 7 * rowH, 12, 18).build());
                 break;
-            case 4: // FAVORITES
+            case 4: 
                 List<SonicPulseConfig.HistoryEntry> favs = config.getFavoriteHistory();
                 for (int i = favScrollOffset; i < Math.min(favs.size(), favScrollOffset + listVisibleCount); i++) {
                     final int fIdx = i; SonicPulseConfig.HistoryEntry e = favs.get(fIdx);
@@ -188,7 +184,7 @@ public class ConfigScreen extends Screen {
                 if (favScrollOffset > 0) addDrawableChild(ButtonWidget.builder(Text.literal("▲"), b -> { favScrollOffset--; refreshWidgets(); }).dimensions(contentX + contentW + 2, y + 34, 12, 18).build());
                 if (favs.size() > favScrollOffset + listVisibleCount) addDrawableChild(ButtonWidget.builder(Text.literal("▼"), b -> { favScrollOffset++; refreshWidgets(); }).dimensions(contentX + contentW + 2, y + 34 + (listVisibleCount - 1) * rowH, 12, 18).build());
                 break;
-            case 5: // RADIO
+            case 5: 
                 String[] pNames = {"BBC", "EU", "TuneIn", "LBC", "News"};
                 String[] pUrls = {
                     "https://gist.githubusercontent.com/bpsib/67089b959e4fa898af69fea59ad74bc3/raw/c7255834f326bc6a406080eed104ebaa9d3bc85d/BBC-Radio-HLS.m3u",
@@ -221,7 +217,7 @@ public class ConfigScreen extends Screen {
                 if (radioScrollOffset > 0) addDrawableChild(ButtonWidget.builder(Text.literal("▲"), b -> { radioScrollOffset--; refreshWidgets(); }).dimensions(contentX + contentW + 2, y + 80, 12, 18).build());
                 if (radioStreams.size() > radioScrollOffset + 6) addDrawableChild(ButtonWidget.builder(Text.literal("▼"), b -> { radioScrollOffset++; refreshWidgets(); }).dimensions(contentX + contentW + 2, y + 80 + 5 * rowH, 12, 18).build());
                 break;
-            case 6: // LOCAL
+            case 6: 
                 addDrawableChild(ButtonWidget.builder(Text.literal("SELECT FOLDER"), b -> { 
                     new Thread(() -> { try { System.setProperty("java.awt.headless", "false"); String script = "Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.FolderBrowserDialog; if($f.ShowDialog() -eq 'OK'){$f.SelectedPath}"; Process p = Runtime.getRuntime().exec(new String[]{"powershell", "-Command", script}); Scanner s = new Scanner(p.getInputStream()); if(s.hasNextLine()) { String path = s.nextLine().trim(); if(!path.isEmpty()) MinecraftClient.getInstance().execute(() -> { config.localMusicPath = path; SonicPulseConfig.save(); scanLocalFiles(); refreshWidgets(); }); } } catch (Exception e) {} }).start();
                 }).dimensions(contentX, y + 32, colW, 18).build());
@@ -234,11 +230,11 @@ public class ConfigScreen extends Screen {
                 if (localScrollOffset > 0) addDrawableChild(ButtonWidget.builder(Text.literal("▲"), b -> { localScrollOffset--; refreshWidgets(); }).dimensions(contentX + contentW - 12, y + 55, 12, 18).build());
                 if (localFiles.size() > localScrollOffset + 7) addDrawableChild(ButtonWidget.builder(Text.literal("▼"), b -> { localScrollOffset++; refreshWidgets(); }).dimensions(contentX + contentW - 12, y + 55 + 6 * rowH, 12, 18).build());
                 break;
-            case 7: // ABOUT
+            case 7: 
                 if (fetchedVersion != null && !CURRENT_VERSION.equals(fetchedVersion)) {
                     addDrawableChild(ButtonWidget.builder(Text.literal("§6⭐ UPDATE TO v" + fetchedVersion + " ⭐"), b -> {
                         try { net.minecraft.util.Util.getOperatingSystem().open(java.net.URI.create("https://modrinth.com/mod/sonicpulse")); } catch (Exception e) {}
-                    }).dimensions(contentX + (contentW / 2) - 85, y + 160, 170, 20).tooltip(Tooltip.of(Text.literal("Opens Modrinth in your browser"))).build());
+                    }).dimensions(contentX + (contentW / 2) - 85, y + 188, 170, 20).tooltip(Tooltip.of(Text.literal("Opens Modrinth in your browser"))).build());
                 }
                 break;
         }
@@ -383,17 +379,23 @@ public class ConfigScreen extends Screen {
         if (currentTab == 5 && radioUrlField != null) radioUrlField.render(context, mx, my, d);
 
         if (currentTab == 7) {
-            context.drawCenteredTextWithShadow(textRenderer, Text.literal("SONICPULSE"), contentX + contentW/2, y + 45, 0xFFFF00FF);
-            context.drawCenteredTextWithShadow(textRenderer, Text.literal("Created by Steve"), contentX + contentW/2, y + 60, 0xFFFFFFFF);
-            context.drawCenteredTextWithShadow(textRenderer, Text.literal("Version: " + CURRENT_VERSION), contentX + contentW/2, y + 75, 0xAAAAAA);
-            context.drawCenteredTextWithShadow(textRenderer, Text.literal("Stream URLs, play local music, and vibe."), contentX + contentW/2, y + 105, 0xFFFFFFFF);
+            context.drawCenteredTextWithShadow(textRenderer, Text.literal("SONICPULSE"), contentX + contentW/2, y + 30, 0xFFFF00FF);
+            context.drawCenteredTextWithShadow(textRenderer, Text.literal("Created by Steve"), contentX + contentW/2, y + 45, 0xFFFFFFFF);
+            context.drawCenteredTextWithShadow(textRenderer, Text.literal("Version: " + CURRENT_VERSION), contentX + contentW/2, y + 58, 0xAAAAAA);
+            context.drawCenteredTextWithShadow(textRenderer, Text.literal("Stream URLs, play local music, and vibe."), contentX + contentW/2, y + 75, 0xFFFFFFFF);
             
+            context.drawCenteredTextWithShadow(textRenderer, Text.literal("☕ Buy Steve a Coffee:"), contentX + contentW/2, y + 95, 0xFFFFFF00);
+            
+            // THE FIX: Added correct RenderLayer and parameters for modern drawTexture call
+            context.drawTexture(RenderLayer::getGuiTextured, Identifier.of("sonicpulse", "textures/coffee_qr.png"), contentX + contentW/2 - 30, y + 108, 0.0f, 0.0f, 60, 60, 60, 60);
+
+            int updateY = y + 175;
             if (fetchedVersion != null && !CURRENT_VERSION.equals(fetchedVersion)) {
-                context.drawCenteredTextWithShadow(textRenderer, Text.literal("§eA new update is available!"), contentX + contentW/2, y + 140, 0xFFFFFF);
+                context.drawCenteredTextWithShadow(textRenderer, Text.literal("§eA new update is available!"), contentX + contentW/2, updateY, 0xFFFFFF);
             } else if (fetchedVersion != null) {
-                context.drawCenteredTextWithShadow(textRenderer, Text.literal("§aYou are running the latest version!"), contentX + contentW/2, y + 140, 0xFFFFFF);
+                context.drawCenteredTextWithShadow(textRenderer, Text.literal("§aYou are running the latest version!"), contentX + contentW/2, updateY, 0xFFFFFF);
             } else {
-                context.drawCenteredTextWithShadow(textRenderer, Text.literal("§7Checking for updates..."), contentX + contentW/2, y + 140, 0xFFFFFF);
+                context.drawCenteredTextWithShadow(textRenderer, Text.literal("§7Checking for updates..."), contentX + contentW/2, updateY, 0xFFFFFF);
             }
         }
         
