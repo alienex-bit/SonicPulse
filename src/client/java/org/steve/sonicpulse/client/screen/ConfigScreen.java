@@ -62,29 +62,28 @@ public class ConfigScreen extends Screen {
             }).dimensions(x + 5, y + 38 + (i * 22), SIDEBAR_WIDTH - 10, 20).build());
         }
 
-        int loaderW = (contentW - 10) / 3;
-        addDrawableChild(ButtonWidget.builder(Text.literal("PLAY FAVS"), b -> { 
+        // RIGHT-ALIGNED GREEN SHADED QUICK-START BUTTONS (AUTO-SWITCH TABS)
+        int playBtnW = 65;
+        int playLocalX = x + BOX_WIDTH - playBtnW - 8;
+        int playFavsX = playLocalX - playBtnW - 5;
+
+        addDrawableChild(ButtonWidget.builder(Text.literal(""), b -> { 
             config.activeMode = SonicPulseConfig.SessionMode.FAVOURITES; SonicPulseConfig.save(); 
             if(!config.getFavoriteHistory().isEmpty()) { SonicPulseConfig.HistoryEntry e = config.getFavoriteHistory().get(0); SonicPulseClient.getEngine().playTrack(e.url, e.label, e.type); }
+            currentTab = 4; // Switch to FAVS tab
             refreshWidgets(); 
-        }).dimensions(contentX, y + 20, loaderW, 13).build());
+        }).dimensions(playFavsX, y + 20, playBtnW, 13).build());
         
-        addDrawableChild(ButtonWidget.builder(Text.literal("PLAY HIST"), b -> { 
-            config.activeMode = SonicPulseConfig.SessionMode.HISTORY; SonicPulseConfig.save(); 
-            List<SonicPulseConfig.HistoryEntry> hist = config.history.stream().filter(e -> !e.favorite).collect(Collectors.toList());
-            if(!hist.isEmpty()) { SonicPulseConfig.HistoryEntry e = hist.get(0); SonicPulseClient.getEngine().playTrack(e.url, e.label, e.type); }
-            refreshWidgets(); 
-        }).dimensions(contentX + loaderW + 5, y + 20, loaderW, 13).build());
-        
-        addDrawableChild(ButtonWidget.builder(Text.literal("PLAY LOCAL"), b -> { 
+        addDrawableChild(ButtonWidget.builder(Text.literal(""), b -> { 
             config.activeMode = SonicPulseConfig.SessionMode.LOCAL; SonicPulseConfig.save(); 
             if(localFiles.isEmpty()) scanLocalFiles(); 
             if(!localFiles.isEmpty()) { File fl = localFiles.get(0); SonicPulseClient.getEngine().playTrack(fl.getAbsolutePath(), fl.getName(), "Local"); }
+            currentTab = 6; // Switch to LOCAL tab
             refreshWidgets(); 
-        }).dimensions(contentX + (loaderW * 2) + 10, y + 20, loaderW, 13).build());
+        }).dimensions(playLocalX, y + 20, playBtnW, 13).build());
 
         int deckX = x + BOX_WIDTH - 85;
-        boolean playing = SonicPulseClient.getEngine().getPlayer().getPlayingTrack() != null;
+        boolean playing = SonicPulseClient.getEngine().isActiveOrPending();
         boolean paused = SonicPulseClient.getEngine().getPlayer().isPaused();
         
         addDrawableChild(ButtonWidget.builder(Text.literal("⏮"), b -> {}).dimensions(deckX, y + 4, 20, 12).build());
@@ -160,7 +159,10 @@ public class ConfigScreen extends Screen {
                 }
                 break;
             case 6:
-                addDrawableChild(ButtonWidget.builder(Text.literal("SELECT MUSIC FOLDER"), b -> pickFolder()).dimensions(contentX, tabY + 5, contentW, 16).build());
+                int btnW = 120;
+                int btnX = contentX + (contentW - btnW) / 2;
+                addDrawableChild(ButtonWidget.builder(Text.literal("Choose Folder"), b -> pickFolder()).dimensions(btnX, tabY + 5, btnW, 16).build());
+                
                 for (int i = localScrollOffset; i < Math.min(localFiles.size(), localScrollOffset + 7); i++) {
                     final int lIdx = i; File fl = localFiles.get(lIdx);
                     int rY = tabY + 26 + ((lIdx - localScrollOffset) * rowH);
@@ -171,7 +173,7 @@ public class ConfigScreen extends Screen {
     }
 
     private void handlePlayPause() {
-        boolean playing = SonicPulseClient.getEngine().getPlayer().getPlayingTrack() != null;
+        boolean playing = SonicPulseClient.getEngine().isActiveOrPending();
         boolean paused = SonicPulseClient.getEngine().getPlayer().isPaused();
         if (playing) {
             SonicPulseClient.getEngine().getPlayer().setPaused(!paused);
@@ -274,13 +276,22 @@ public class ConfigScreen extends Screen {
         context.fill(x + SIDEBAR_WIDTH, y + 38, x + SIDEBAR_WIDTH + 1, y + BOX_HEIGHT - 5, 0x44FFFFFF);
         super.render(context, mx, my, d);
         
-        boolean isEnginePlaying = SonicPulseClient.getEngine().getPlayer().getPlayingTrack() != null;
+        boolean isEnginePlaying = SonicPulseClient.getEngine().isActiveOrPending();
         boolean isEnginePaused = SonicPulseClient.getEngine().getPlayer().isPaused();
         String stateTxt = isEnginePlaying ? (isEnginePaused ? "§e[ ⏸ ] PAUSED" : "§a[ ♫ ] LIVE") : "§7[ ■ ] STANDBY";
         String trkTxt = (config.currentTitle != null && isEnginePlaying) ? " » §f" + textRenderer.trimToWidth(config.currentTitle, 115) : "";
         context.drawText(textRenderer, Text.literal(stateTxt + " §8(" + config.activeMode.name() + ")" + trkTxt), x + 5, y + 6, 0xFFFFFFFF, false);
         
         context.drawBorder(x + 4, y + 37 + (currentTab * 22), SIDEBAR_WIDTH - 8, 22, ACTIVE_BORDER);
+
+        // GREEN SHADING FOR RIGHT-ALIGNED PLAY BUTTONS
+        int playBtnW = 65;
+        int playLocalX = x + BOX_WIDTH - playBtnW - 8;
+        int playFavsX = playLocalX - playBtnW - 5;
+        context.fill(playFavsX, y + 20, playFavsX + playBtnW, y + 33, 0x5555FF55);
+        context.fill(playLocalX, y + 20, playLocalX + playBtnW, y + 33, 0x5555FF55);
+        context.drawCenteredTextWithShadow(textRenderer, Text.literal("Play Favs"), playFavsX + playBtnW / 2, y + 23, 0xFFFFFF);
+        context.drawCenteredTextWithShadow(textRenderer, Text.literal("Play Local"), playLocalX + playBtnW / 2, y + 23, 0xFFFFFF);
 
         // DRAW ACTIVE TRACK HIGHLIGHT
         AudioTrack playingTrack = SonicPulseClient.getEngine().getPlayer().getPlayingTrack();
