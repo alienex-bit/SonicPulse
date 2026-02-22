@@ -46,7 +46,6 @@ public class ConfigScreen extends Screen {
         }
     }
 
-    // FONT PURGE: Stripped the hidden variation selectors from the Star and Info icons!
     private static final String[] TAB_LABELS = {"📡 REMOTE", "🎨 VISUAL", "📐 LAYOUT", "🕒 HIST", "★ FAVS", "📻 RADIO", "♫ LOCAL", "i ABOUT"};
 
     @Override protected void init() { refreshWidgets(); }
@@ -310,6 +309,16 @@ public class ConfigScreen extends Screen {
         context.fill(playLocalX, y + 20, playLocalX + playBtnW, y + 33, 0x5555FF55);
         context.drawCenteredTextWithShadow(textRenderer, Text.literal("Play Favs"), playFavsX + playBtnW / 2, y + 23, 0xFFFFFF);
         context.drawCenteredTextWithShadow(textRenderer, Text.literal("Play Local"), playLocalX + playBtnW / 2, y + 23, 0xFFFFFF);
+
+        // --- MEDIA DECK SHADING LOGIC ---
+        int deckX = x + BOX_WIDTH - 85;
+        if (isEnginePlaying && !isEnginePaused) {
+            context.fill(deckX + 21, y + 4, deckX + 41, y + 16, 0x5500FF00); // Shaded Green (Playing)
+        } else if (isEnginePlaying && isEnginePaused) {
+            context.fill(deckX + 21, y + 4, deckX + 41, y + 16, 0x55FFA500); // Shaded Orange (Paused)
+        } else {
+            context.fill(deckX + 42, y + 4, deckX + 62, y + 16, 0x55FF0000); // Shaded Red (Stopped)
+        }
 
         if (currentTab == 1 && config.bgEffect != SonicPulseConfig.BgEffect.OFF) {
             int divY = tabY + 132;
