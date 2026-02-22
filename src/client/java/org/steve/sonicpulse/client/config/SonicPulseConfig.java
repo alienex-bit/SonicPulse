@@ -7,7 +7,9 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class SonicPulseConfig {
     public enum Skin {
@@ -22,7 +24,6 @@ public class SonicPulseConfig {
         ROYAL_GOLD(0xEE222222, 0xFFFFD700, "Royal Gold"),
         BLOOD_MOON(0xEE330000, 0xFFDC143C, "Blood Moon"),
         GLACIER(0xDD001133, 0xFF00FFFF, "Glacier");
-
         private final int bgColor, borderColor;
         private final String name;
         Skin(int bg, int border, String name) { this.bgColor = bg; this.borderColor = border; this.name = name; }
@@ -31,110 +32,64 @@ public class SonicPulseConfig {
         public String getName() { return name; }
     }
 
+    public enum SessionMode { NONE, FAVOURITES, HISTORY, LOCAL, RADIO }
     public enum VisualizerStyle { SOLID, FLOATING_PEAKS }
-    
     public enum BgEffect { OFF, BASS_PULSE, RGB_AURA }
-
     public enum RibbonLayout {
-        LOG_TRK_BAR("Logo | Track | Bars"),
-        LOG_BAR_TRK("Logo | Bars | Track"),
-        TRK_LOG_BAR("Track | Logo | Bars"),
-        TRK_BAR_LOG("Track | Bars | Logo"),
-        BAR_LOG_TRK("Bars | Logo | Track"),
-        BAR_TRK_LOG("Bars | Track | Logo");
-
+        LOG_TRK_BAR("Logo|Trk|Bar"), LOG_BAR_TRK("Logo|Bar|Trk"), TRK_LOG_BAR("Trk|Logo|Bar"),
+        TRK_BAR_LOG("Trk|Bar|Logo"), BAR_LOG_TRK("Bar|Logo|Trk"), BAR_TRK_LOG("Bar|Trk|Logo");
         private final String displayName;
         RibbonLayout(String name) { this.displayName = name; }
         public String getDisplayName() { return displayName; }
     }
 
     public float hudScale = 1.0f; 
-    public int barColor = 0xFF00BFFF; 
-    public int titleColor = 0xFFFF00FF;
-    public int volume = 50;
+    public int barColor = 0xFF00BFFF, titleColor = 0xFFFF00FF, volume = 50;
     public Skin skin = Skin.DEFAULT;
+    public SessionMode activeMode = SessionMode.NONE;
     public VisualizerStyle visStyle = VisualizerStyle.SOLID;
     public BgEffect bgEffect = BgEffect.OFF;
     public RibbonLayout ribbonLayout = RibbonLayout.LOG_TRK_BAR;
-    public String currentTitle = null;
-    public String lastRadioUrl = "";
-    public String localMusicPath = "";
+    public String currentTitle = null, lastRadioUrl = "", localMusicPath = "";
     public List<HistoryEntry> history = new ArrayList<>();
-    public boolean hudVisible = true;
-    
-    public boolean showLogo = true;
-    public boolean showTrack = true;
-    public boolean showBars = true;
+    public boolean hudVisible = true, showLogo = true, showTrack = true, showBars = true;
 
     public static final int[] PALETTE = {
-        0x00BFFF, 0x00CED1, 0x00FFC6, 0x32CD32, 0x7FFF00, 0xFFD300, 
-        0xFFBF00, 0xFF8C00, 0xFF5F00, 0xFF2400, 0xDC143C, 0xFF1493, 
-        0xFF00FF, 0x8A2BE2, 0x6A0DAD, 0x4B0082, 0x008B8B, 0x4682B4, 0xB0FF00
+        0x00BFFF, 0x00CED1, 0x00FFC6, 0x32CD32, 0x7FFF00, 0xFFD300, 0xFFBF00, 0xFF8C00, 0xFF5F00, 
+        0xFF2400, 0xDC143C, 0xFF1493, 0xFF00FF, 0x8A2BE2, 0x6A0DAD, 0x4B0082, 0x008B8B, 0x4682B4, 0xB0FF00
     };
-    
     public static final String[] COLOR_NAMES = {
-        "Electric Blue", "Deep Sky Cyan", "Neon Aqua", "Lime Green", "Chartreuse", "Vivid Yellow",
-        "Amber", "Orange", "Neon Orange", "Signal Red", "Crimson", "Hot Pink",
-        "Magenta", "Violet", "Deep Purple", "Indigo", "Cyber Teal", "Steel Blue", "Acid Green"
+        "Elec Blue", "Cyan", "Aqua", "Green", "Chart", "Yellow", "Amber", "Orange", "N Orange", 
+        "Red", "Crimson", "Pink", "Magenta", "Violet", "Purple", "Indigo", "Teal", "Steel", "Acid"
     };
 
     public static class HistoryEntry {
         public String type, label, url;
         public boolean favorite = false;
-        public HistoryEntry(String t, String l, String u) { type=t; label=l; url=u; }
+        public long lastPlayed = 0;
+        public HistoryEntry(String t, String l, String u) { type=t; label=l; url=u; this.lastPlayed = System.currentTimeMillis(); }
     }
 
     public void addHistory(String type, String label, String url) {
-        boolean wasFav = false;
-        String existingLabel = null;
-        for (HistoryEntry e : history) {
-            if (e.url.equals(url)) {
-                wasFav = e.favorite;
-                existingLabel = e.label;
-                break;
-            }
+        HistoryEntry entry = history.stream().filter(e -> e.url.equals(url)).findFirst().orElse(null);
+        if (entry != null) {
+            entry.label = label; entry.lastPlayed = System.currentTimeMillis();
+            if (!entry.favorite) { history.remove(entry); history.add(0, entry); }
+        } else {
+            history.add(0, new HistoryEntry(type, label, url));
         }
-        
-        String finalLabel = (existingLabel != null) ? existingLabel : label;
-        history.removeIf(e -> e.url.equals(url));
-        HistoryEntry newEntry = new HistoryEntry(type, finalLabel, url);
-        newEntry.favorite = wasFav;
-        
-        history.add(0, newEntry);
-        if (history.size() > 50) history.remove(history.size() - 1);
+        List<HistoryEntry> nonFavs = history.stream().filter(e -> !e.favorite).collect(Collectors.toList());
+        if (nonFavs.size() > 20) { nonFavs.sort(Comparator.comparingLong(e -> e.lastPlayed)); history.remove(nonFavs.get(0)); }
         save();
     }
 
-    public List<HistoryEntry> getFavoriteHistory() {
-        return history.stream().filter(e -> e.favorite).toList();
-    }
-
+    public List<HistoryEntry> getFavoriteHistory() { return history.stream().filter(e -> e.favorite).toList(); }
     public void setColor(int c) { barColor = c; save(); }
     public void setTitleColor(int c) { titleColor = c; save(); }
-    
-    public void nextSkin() {
-        Skin[] s = Skin.values();
-        skin = s[(skin.ordinal() + 1) % s.length];
-        save();
-    }
-
-    public void nextVisStyle() {
-        VisualizerStyle[] v = VisualizerStyle.values();
-        visStyle = v[(visStyle.ordinal() + 1) % v.length];
-        save();
-    }
-    
-    public void nextBgEffect() {
-        BgEffect[] v = BgEffect.values();
-        bgEffect = v[(bgEffect.ordinal() + 1) % v.length];
-        save();
-    }
-
-    public void nextRibbonLayout() {
-        RibbonLayout[] r = RibbonLayout.values();
-        ribbonLayout = r[(ribbonLayout.ordinal() + 1) % r.length];
-        save();
-    }
+    public void nextSkin() { skin = Skin.values()[(skin.ordinal() + 1) % Skin.values().length]; save(); }
+    public void nextVisStyle() { visStyle = VisualizerStyle.values()[(visStyle.ordinal() + 1) % VisualizerStyle.values().length]; save(); }
+    public void nextBgEffect() { bgEffect = BgEffect.values()[(bgEffect.ordinal() + 1) % BgEffect.values().length]; save(); }
+    public void nextRibbonLayout() { ribbonLayout = RibbonLayout.values()[(ribbonLayout.ordinal() + 1) % RibbonLayout.values().length]; save(); }
 
     private static final File FILE = new File(MinecraftClient.getInstance().runDirectory, "config/sonicpulse.json");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -142,18 +97,11 @@ public class SonicPulseConfig {
 
     public static SonicPulseConfig get() {
         if (instance == null) {
-            if (FILE.exists()) {
-                try (FileReader r = new FileReader(FILE)) { instance = GSON.fromJson(r, SonicPulseConfig.class); }
-                catch (Exception e) { instance = new SonicPulseConfig(); }
-            } else { instance = new SonicPulseConfig(); }
+            if (FILE.exists()) { try (FileReader r = new FileReader(FILE)) { instance = GSON.fromJson(r, SonicPulseConfig.class); } catch (Exception e) { instance = new SonicPulseConfig(); } }
+            else { instance = new SonicPulseConfig(); }
         }
+        if (instance.activeMode == null) instance.activeMode = SessionMode.NONE;
         return instance;
     }
-
-    public static void save() {
-        try {
-            FILE.getParentFile().mkdirs();
-            try (FileWriter w = new FileWriter(FILE)) { GSON.toJson(get(), w); }
-        } catch (Exception e) { e.printStackTrace(); }
-    }
+    public static void save() { try { FILE.getParentFile().mkdirs(); try (FileWriter w = new FileWriter(FILE)) { GSON.toJson(get(), w); } } catch (Exception e) { e.printStackTrace(); } }
 }

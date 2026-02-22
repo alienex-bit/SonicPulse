@@ -10,6 +10,7 @@ import com.sedmelluq.discord.lavaplayer.source.soundcloud.SoundCloudAudioSourceM
 import com.sedmelluq.discord.lavaplayer.source.twitch.TwitchStreamAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.vimeo.VimeoAudioSourceManager;
 import dev.lavalink.youtube.YoutubeAudioSourceManager;
+import org.steve.sonicpulse.client.config.SonicPulseConfig;
 
 public class SonicPulseEngine {
     private final DefaultAudioPlayerManager manager = new DefaultAudioPlayerManager();
@@ -19,52 +20,38 @@ public class SonicPulseEngine {
 
     public SonicPulseEngine() {
         manager.getConfiguration().setOutputFormat(StandardAudioDataFormats.COMMON_PCM_S16_LE);
-        
-        // --- BUG FIX: THE ROUTING CONFLICT ---
-        // We manually register our source managers to prevent the old, broken
-        // built-in YouTube manager from overriding our custom Lavalink one!
-        
-        // 1. Robust Custom YouTube Manager
         manager.registerSourceManager(new YoutubeAudioSourceManager());
-        
-        // 2. Explicitly register the Twitch Manager
         manager.registerSourceManager(new TwitchStreamAudioSourceManager());
-        
-        // 3. Register the rest of the web sources manually
         manager.registerSourceManager(SoundCloudAudioSourceManager.createDefault());
         manager.registerSourceManager(new BandcampAudioSourceManager());
         manager.registerSourceManager(new VimeoAudioSourceManager());
         manager.registerSourceManager(new HttpAudioSourceManager());
-        
-        // 4. Register Local Sources for mp3/wav files
         manager.registerSourceManager(new LocalAudioSourceManager());
-        
         player = manager.createPlayer();
         output = new AudioOutput(player);
     }
 
-    public void playTrack(String url) { 
+    public void playTrack(String url, String label, String type) { 
         pending = true;
-        output.start(); 
+        output.start();
+        
+        // FIXED: Use provided label immediately. Fallback to filename/URL only if label is null.
+        String finalLabel = (label != null && !label.isEmpty()) ? label : url;
+        if (finalLabel.equals(url)) {
+            if (url.contains("/") || url.contains("\\")) {
+                finalLabel = url.substring(Math.max(url.lastIndexOf("/"), url.lastIndexOf("\\")) + 1);
+            }
+        }
+        
+        SonicPulseConfig.get().currentTitle = finalLabel;
+        SonicPulseConfig.get().addHistory(type, finalLabel, url);
         manager.loadItem(url, new TrackLoadHandler(player, this)); 
     }
 
-    public void tick() { 
-        // Engine tick logic if needed in future
-    }
-
+    public void tick() {}
     public void clearPending() { this.pending = false; }
-
-    public boolean isActiveOrPending() { 
-        return player.getPlayingTrack() != null || pending; 
-    }
-    
-    public void stop() { 
-        player.stopTrack(); 
-        pending = false; 
-    }
-    
+    public boolean isActiveOrPending() { return player.getPlayingTrack() != null || pending; }
+    public void stop() { player.stopTrack(); pending = false; }
     public AudioPlayer getPlayer() { return player; }
-    
     public float[] getVisualizerData() { return output.getAmplitudes(); }
 }
