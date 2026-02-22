@@ -118,7 +118,6 @@ public class ConfigScreen extends Screen {
                 addDrawableChild(ButtonWidget.builder(Text.literal("Logo: " + (config.showLogo ? "ON" : "OFF")), b -> { config.showLogo = !config.showLogo; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, y + 100, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Track: " + (config.showTrack ? "ON" : "OFF")), b -> { config.showTrack = !config.showTrack; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, y + 125, colW, 20).build());
                 
-                // NEW: Background Effects Button
                 addDrawableChild(ButtonWidget.builder(Text.literal("BG: " + config.bgEffect.name().replace("_", " ")), b -> { config.nextBgEffect(); refreshWidgets(); }).dimensions(contentX, y + 150, colW, 20).build());
                 
                 addDrawableChild(ButtonWidget.builder(Text.literal("Style: " + config.visStyle.name().replace("_", " ")), b -> { config.nextVisStyle(); refreshWidgets(); }).dimensions(contentX + colW + 10, y + 50, colW, 20).build());
@@ -128,7 +127,11 @@ public class ConfigScreen extends Screen {
                 break;
             case 2: // LAYOUT
                 addDrawableChild(ButtonWidget.builder(Text.literal("Order: " + config.ribbonLayout.getDisplayName()), b -> { config.nextRibbonLayout(); refreshWidgets(); }).dimensions(contentX, y + 45, contentW, 20).build());
-                addDrawableChild(new SliderWidget(contentX, y + 70, contentW, 20, Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%"), (config.hudScale - 0.5) / 0.5) { @Override protected void updateMessage() { setMessage(Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%")); } @Override protected void applyValue() { config.hudScale = (float)(0.5 + (value * 0.5)); SonicPulseConfig.save(); } });
+                // UPDATED SLIDER MATH: Now ranges from 0.25 (25%) to 1.00 (100%)
+                addDrawableChild(new SliderWidget(contentX, y + 70, contentW, 20, Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%"), (config.hudScale - 0.25) / 0.75) { 
+                    @Override protected void updateMessage() { setMessage(Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%")); } 
+                    @Override protected void applyValue() { config.hudScale = (float)(0.25 + (value * 0.75)); SonicPulseConfig.save(); } 
+                });
                 break;
             case 3: // HISTORY
                 List<SonicPulseConfig.HistoryEntry> historyOnly = config.history.stream().filter(e -> !e.favorite).toList();
@@ -345,7 +348,6 @@ public class ConfigScreen extends Screen {
         }
         
         if (currentTab == 1) {
-            // Extended the inner shaded box down slightly to comfortably hold the new button
             context.fill(contentX + (contentW / 2), y + 45, contentX + (contentW / 2) + 1, y + 170, 0x44FFFFFF);
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("HUD THEME"), contentX + (contentW / 4), y + 36, 0xFFFF00FF);
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("BAR VISUALS"), contentX + (contentW / 4) * 3, y + 36, 0xFFFF00FF);
