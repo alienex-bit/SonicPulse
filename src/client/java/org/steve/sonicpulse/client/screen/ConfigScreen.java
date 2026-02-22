@@ -47,6 +47,18 @@ public class ConfigScreen extends Screen {
     }
 
     private static final String[] TAB_LABELS = {"📡 REMOTE", "🎨 VISUAL", "📐 LAYOUT", "🕒 HIST", "★ FAVS", "📻 RADIO", "♫ LOCAL", "i ABOUT"};
+    
+    // THE TOOLTIPS
+    private static final String[] TAB_TOOLTIPS = {
+        "Stream audio from web links (YouTube, SoundCloud, etc.)",
+        "Customize HUD colors, skins, and reactive effects",
+        "Adjust HUD scale and element sequence",
+        "View and replay recently streamed tracks",
+        "Manage and play your saved favorite tracks",
+        "Listen to live internet radio streams",
+        "Play music files from your local computer",
+        "View mod information and credits"
+    };
 
     @Override protected void init() { refreshWidgets(); }
     
@@ -59,7 +71,9 @@ public class ConfigScreen extends Screen {
             final int idx = i;
             addDrawableChild(ButtonWidget.builder(Text.literal(TAB_LABELS[idx]), b -> { 
                 currentTab = idx; renamingEntry = null; if (idx == 6) { localScrollOffset = 0; scanLocalFiles(); } refreshWidgets(); 
-            }).dimensions(x + 5, y + 38 + (i * 22), SIDEBAR_WIDTH - 10, 20).build());
+            }).dimensions(x + 5, y + 38 + (i * 22), SIDEBAR_WIDTH - 10, 20)
+              .tooltip(Tooltip.of(Text.literal(TAB_TOOLTIPS[idx]))) // INJECTING TOOLTIPS HERE
+              .build());
         }
 
         int playBtnW = 65;
@@ -115,7 +129,6 @@ public class ConfigScreen extends Screen {
                 addDrawableChild(ButtonWidget.builder(Text.literal("Bars: " + (config.showBars ? "ON" : "OFF")), b -> { config.showBars = !config.showBars; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 80, colW, 20).build());
                 
                 if (config.bgEffect != SonicPulseConfig.BgEffect.OFF) {
-                    int divY = tabY + 132;
                     int subY = tabY + 145;
                     
                     if (config.bgEffect == SonicPulseConfig.BgEffect.PULSE) {
@@ -310,14 +323,13 @@ public class ConfigScreen extends Screen {
         context.drawCenteredTextWithShadow(textRenderer, Text.literal("Play Favs"), playFavsX + playBtnW / 2, y + 23, 0xFFFFFF);
         context.drawCenteredTextWithShadow(textRenderer, Text.literal("Play Local"), playLocalX + playBtnW / 2, y + 23, 0xFFFFFF);
 
-        // --- MEDIA DECK SHADING LOGIC ---
         int deckX = x + BOX_WIDTH - 85;
         if (isEnginePlaying && !isEnginePaused) {
-            context.fill(deckX + 21, y + 4, deckX + 41, y + 16, 0x5500FF00); // Shaded Green (Playing)
+            context.fill(deckX + 21, y + 4, deckX + 41, y + 16, 0x5500FF00); 
         } else if (isEnginePlaying && isEnginePaused) {
-            context.fill(deckX + 21, y + 4, deckX + 41, y + 16, 0x55FFA500); // Shaded Orange (Paused)
+            context.fill(deckX + 21, y + 4, deckX + 41, y + 16, 0x55FFA500); 
         } else {
-            context.fill(deckX + 42, y + 4, deckX + 62, y + 16, 0x55FF0000); // Shaded Red (Stopped)
+            context.fill(deckX + 42, y + 4, deckX + 62, y + 16, 0x55FF0000); 
         }
 
         if (currentTab == 1 && config.bgEffect != SonicPulseConfig.BgEffect.OFF) {
