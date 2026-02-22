@@ -34,19 +34,19 @@ public class SonicPulseConfig {
 
     public enum SessionMode { NONE, FAVOURITES, HISTORY, LOCAL, RADIO }
     public enum VisualizerStyle { SOLID, FLOATING_PEAKS }
-    public enum BgEffect { OFF, PULSE, AURA, VHS, HEATMAP, LASER }
+    
+    // LASER REMOVED
+    public enum BgEffect { OFF, PULSE, AURA, VHS, HEATMAP }
     
     // --- CONTROL DECK TWEAK ENUMS ---
     public enum PulseIntensity { SUBTLE, NORMAL, OVERDRIVE }
     public enum PulseDecay { SNAPPY, FLUID }
     public enum AuraSpeed { CHILL, NORMAL, WARP }
-    public enum AuraPalette { RAINBOW, MONOTONE }
+    public enum AuraPalette { RAINBOW, AURORA } // UPGRADED TO AURORA
     public enum VhsGlitch { MINOR, HEAVY, CORRUPTED }
     public enum VhsScanlines { FAINT, DARK, OFF }
     public enum HeatmapScale { FIRE, PLASMA, TOXIC }
     public enum HeatmapSpread { CONFINED, UNBOUND }
-    public enum LaserColor { SITH_RED, CYBER_CYAN, NEON_GREEN, UI_COLOR }
-    public enum LaserThickness { PRECISION, HEAVY }
 
     public enum RibbonLayout {
         LOG_TRK_BAR("Logo → Track → Bars"), 
@@ -80,8 +80,6 @@ public class SonicPulseConfig {
     public VhsScanlines vhsScanlines = VhsScanlines.FAINT;
     public HeatmapScale heatmapScale = HeatmapScale.FIRE;
     public HeatmapSpread heatmapSpread = HeatmapSpread.CONFINED;
-    public LaserColor laserColor = LaserColor.SITH_RED;
-    public LaserThickness laserThickness = LaserThickness.HEAVY;
 
     public static final int[] PALETTE = {
         0x00BFFF, 0x00CED1, 0x00FFC6, 0x32CD32, 0x7FFF00, 0xFFD300, 0xFFBF00, 0xFF8C00, 0xFF5F00, 
@@ -130,8 +128,6 @@ public class SonicPulseConfig {
     public void nextVhsScanlines() { vhsScanlines = VhsScanlines.values()[(vhsScanlines.ordinal() + 1) % VhsScanlines.values().length]; save(); }
     public void nextHeatmapScale() { heatmapScale = HeatmapScale.values()[(heatmapScale.ordinal() + 1) % HeatmapScale.values().length]; save(); }
     public void nextHeatmapSpread() { heatmapSpread = HeatmapSpread.values()[(heatmapSpread.ordinal() + 1) % HeatmapSpread.values().length]; save(); }
-    public void nextLaserColor() { laserColor = LaserColor.values()[(laserColor.ordinal() + 1) % LaserColor.values().length]; save(); }
-    public void nextLaserThickness() { laserThickness = LaserThickness.values()[(laserThickness.ordinal() + 1) % LaserThickness.values().length]; save(); }
 
     private static final File FILE = new File(MinecraftClient.getInstance().runDirectory, "config/sonicpulse.json");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -151,7 +147,6 @@ public class SonicPulseConfig {
         if (instance.ribbonLayout == null) instance.ribbonLayout = RibbonLayout.LOG_TRK_BAR;
         if (instance.history == null) instance.history = new ArrayList<>();
         
-        // Tweak Plating
         if (instance.pulseIntensity == null) instance.pulseIntensity = PulseIntensity.NORMAL;
         if (instance.pulseDecay == null) instance.pulseDecay = PulseDecay.FLUID;
         if (instance.auraSpeed == null) instance.auraSpeed = AuraSpeed.NORMAL;
@@ -160,8 +155,6 @@ public class SonicPulseConfig {
         if (instance.vhsScanlines == null) instance.vhsScanlines = VhsScanlines.FAINT;
         if (instance.heatmapScale == null) instance.heatmapScale = HeatmapScale.FIRE;
         if (instance.heatmapSpread == null) instance.heatmapSpread = HeatmapSpread.CONFINED;
-        if (instance.laserColor == null) instance.laserColor = LaserColor.SITH_RED;
-        if (instance.laserThickness == null) instance.laserThickness = LaserThickness.HEAVY;
 
         return instance;
     }

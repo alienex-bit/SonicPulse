@@ -107,14 +107,32 @@ public class ConfigScreen extends Screen {
                 addDrawableChild(ButtonWidget.builder(Text.literal("Skin: " + config.skin.getName()), b -> { config.nextSkin(); refreshWidgets(); }).dimensions(contentX, tabY + 30, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Logo: " + (config.showLogo ? "ON" : "OFF")), b -> { config.showLogo = !config.showLogo; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, tabY + 55, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Track: " + (config.showTrack ? "ON" : "OFF")), b -> { config.showTrack = !config.showTrack; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, tabY + 80, colW, 20).build());
-                
-                // COMPACT FX LABEL
                 addDrawableChild(ButtonWidget.builder(Text.literal("FX: " + config.bgEffect.name()), b -> { config.nextBgEffect(); refreshWidgets(); }).dimensions(contentX, tabY + 105, colW, 20).build());
                 
                 addDrawableChild(ButtonWidget.builder(Text.literal("Style: " + config.visStyle.name().replace("_", " ")), b -> { config.nextVisStyle(); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 5, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Bar: " + SonicPulseConfig.COLOR_NAMES[colorIndex]), b -> { colorIndex = (colorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setColor(SonicPulseConfig.PALETTE[colorIndex]); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 30, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Hud Title: " + SonicPulseConfig.COLOR_NAMES[titleColorIndex]), b -> { titleColorIndex = (titleColorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setTitleColor(SonicPulseConfig.PALETTE[titleColorIndex]); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 55, colW, 20).build());
                 addDrawableChild(ButtonWidget.builder(Text.literal("Bars: " + (config.showBars ? "ON" : "OFF")), b -> { config.showBars = !config.showBars; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 80, colW, 20).build());
+                
+                // --- THE CONTROL DECK UI (LASER REMOVED) ---
+                if (config.bgEffect != SonicPulseConfig.BgEffect.OFF) {
+                    int divY = tabY + 132;
+                    int subY = tabY + 145;
+                    
+                    if (config.bgEffect == SonicPulseConfig.BgEffect.PULSE) {
+                        addDrawableChild(ButtonWidget.builder(Text.literal("Int: " + config.pulseIntensity.name()), b -> { config.nextPulseIntensity(); refreshWidgets(); }).dimensions(contentX, subY, colW, 20).build());
+                        addDrawableChild(ButtonWidget.builder(Text.literal("Decay: " + config.pulseDecay.name()), b -> { config.nextPulseDecay(); refreshWidgets(); }).dimensions(contentX + colW + 10, subY, colW, 20).build());
+                    } else if (config.bgEffect == SonicPulseConfig.BgEffect.AURA) {
+                        addDrawableChild(ButtonWidget.builder(Text.literal("Spd: " + config.auraSpeed.name()), b -> { config.nextAuraSpeed(); refreshWidgets(); }).dimensions(contentX, subY, colW, 20).build());
+                        addDrawableChild(ButtonWidget.builder(Text.literal("Hue: " + config.auraPalette.name()), b -> { config.nextAuraPalette(); refreshWidgets(); }).dimensions(contentX + colW + 10, subY, colW, 20).build());
+                    } else if (config.bgEffect == SonicPulseConfig.BgEffect.VHS) {
+                        addDrawableChild(ButtonWidget.builder(Text.literal("Lvl: " + config.vhsGlitch.name()), b -> { config.nextVhsGlitch(); refreshWidgets(); }).dimensions(contentX, subY, colW, 20).build());
+                        addDrawableChild(ButtonWidget.builder(Text.literal("CRT: " + config.vhsScanlines.name()), b -> { config.nextVhsScanlines(); refreshWidgets(); }).dimensions(contentX + colW + 10, subY, colW, 20).build());
+                    } else if (config.bgEffect == SonicPulseConfig.BgEffect.HEATMAP) {
+                        addDrawableChild(ButtonWidget.builder(Text.literal("Map: " + config.heatmapScale.name()), b -> { config.nextHeatmapScale(); refreshWidgets(); }).dimensions(contentX, subY, colW, 20).build());
+                        addDrawableChild(ButtonWidget.builder(Text.literal("Rad: " + config.heatmapSpread.name()), b -> { config.nextHeatmapSpread(); refreshWidgets(); }).dimensions(contentX + colW + 10, subY, colW, 20).build());
+                    }
+                }
                 break;
             case 2:
                 addDrawableChild(ButtonWidget.builder(Text.literal("Element Sequence: " + config.ribbonLayout.getDisplayName()), b -> { config.nextRibbonLayout(); refreshWidgets(); }).dimensions(contentX, tabY + 5, contentW, 20).build());
@@ -292,6 +310,13 @@ public class ConfigScreen extends Screen {
         context.fill(playLocalX, y + 20, playLocalX + playBtnW, y + 33, 0x5555FF55);
         context.drawCenteredTextWithShadow(textRenderer, Text.literal("Play Favs"), playFavsX + playBtnW / 2, y + 23, 0xFFFFFF);
         context.drawCenteredTextWithShadow(textRenderer, Text.literal("Play Local"), playLocalX + playBtnW / 2, y + 23, 0xFFFFFF);
+
+        // --- DRAW CONTROL DECK DIVIDER IN VISUAL TAB ---
+        if (currentTab == 1 && config.bgEffect != SonicPulseConfig.BgEffect.OFF) {
+            int divY = tabY + 132;
+            context.fill(contentX, divY, contentX + contentW, divY + 1, 0x44FFFFFF);
+            context.drawText(textRenderer, Text.literal("§e" + config.bgEffect.name() + " TWEAKS"), contentX, divY + 4, 0xFFFFFFFF, false);
+        }
 
         AudioTrack playingTrack = SonicPulseClient.getEngine().getPlayer().getPlayingTrack();
         String activeUri = playingTrack != null ? playingTrack.getInfo().uri : null;

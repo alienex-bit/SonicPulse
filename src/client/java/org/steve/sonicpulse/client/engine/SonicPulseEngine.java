@@ -3,14 +3,24 @@ package org.steve.sonicpulse.client.engine;
 import com.sedmelluq.discord.lavaplayer.format.StandardAudioDataFormats;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
 import com.sedmelluq.discord.lavaplayer.player.DefaultAudioPlayerManager;
+import com.sedmelluq.discord.lavaplayer.player.event.AudioEventAdapter;
 import com.sedmelluq.discord.lavaplayer.source.bandcamp.BandcampAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.http.HttpAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.local.LocalAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.soundcloud.SoundCloudAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.twitch.TwitchStreamAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.vimeo.VimeoAudioSourceManager;
+import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
+import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
 import dev.lavalink.youtube.YoutubeAudioSourceManager;
 import org.steve.sonicpulse.client.config.SonicPulseConfig;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class SonicPulseEngine {
     private final DefaultAudioPlayerManager manager = new DefaultAudioPlayerManager();
@@ -29,13 +39,15 @@ public class SonicPulseEngine {
         manager.registerSourceManager(new LocalAudioSourceManager());
         player = manager.createPlayer();
         output = new AudioOutput(player);
+        
+        // AUTOPLAY: Attach the custom TrackScheduler to seamlessly play the next song
+        player.addListener(new TrackScheduler());
     }
 
     public void playTrack(String url, String label, String type) { 
         pending = true;
         output.start();
         
-        // ENGINE INTELLIGENCE: Check if track exists in Favs to use user's custom name
         SonicPulseConfig.HistoryEntry savedFav = SonicPulseConfig.get().history.stream()
             .filter(e -> e.url.equals(url) && e.favorite).findFirst().orElse(null);
             
@@ -50,6 +62,69 @@ public class SonicPulseEngine {
         SonicPulseConfig.get().currentTitle = finalLabel;
         SonicPulseConfig.get().addHistory(type, finalLabel, url);
         manager.loadItem(url, new TrackLoadHandler(player, this)); 
+    }
+
+    // --- AUTOPLAY SCHEDULER (The Endless Groove) ---
+    private class TrackScheduler extends AudioEventAdapter {
+        @Override
+        public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason) {
+            // ONLY trigger next track if the track ended naturally (not stopped manually)
+            if (endReason.mayStartNext) {
+                playNextInList(track);
+            }
+        }
+    }
+
+    private void playNextInList(AudioTrack endingTrack) {
+        String curUri = endingTrack != null ? endingTrack.getInfo().uri : null;
+        SonicPulseConfig config = SonicPulseConfig.get();
+
+        if (config.activeMode == SonicPulseConfig.SessionMode.FAVOURITES) {
+            List<SonicPulseConfig.HistoryEntry> favs = config.getFavoriteHistory();
+            if (!favs.isEmpty()) { 
+                int ni = 0; 
+                if (curUri != null) { 
+                    for (int i = 0; i < favs.size(); i++) { 
+                        if (favs.get(i).url.equals(curUri)) { ni = (i + 1) % favs.size(); break; } 
+                    } 
+                } 
+                SonicPulseConfig.HistoryEntry n = favs.get(ni); 
+                playTrack(n.url, n.label, n.type); 
+            }
+        } else if (config.activeMode == SonicPulseConfig.SessionMode.LOCAL) {
+            List<File> localFiles = new ArrayList<>();
+            String path = config.localMusicPath.isEmpty() ? net.minecraft.client.MinecraftClient.getInstance().runDirectory.toPath().resolve("sonicpulse").resolve("music").toString() : config.localMusicPath;
+            File dr = new File(path); 
+            if (dr.exists() && dr.isDirectory()) { 
+                File[] fls = dr.listFiles((d, n) -> { String nm = n.toLowerCase(); return nm.endsWith(".mp3") || nm.endsWith(".wav") || nm.endsWith(".flac"); }); 
+                if (fls != null) Collections.addAll(localFiles, fls); 
+            }
+            if (!localFiles.isEmpty()) {
+                int ni = 0; 
+                if (curUri != null) { 
+                    for (int i = 0; i < localFiles.size(); i++) { 
+                        File fl = localFiles.get(i);
+                        if (curUri.equals(fl.getAbsolutePath()) || curUri.equals(fl.toURI().toString()) || curUri.replace("\\", "/").endsWith(fl.getName())) { 
+                            ni = (i + 1) % localFiles.size(); break; 
+                        } 
+                    } 
+                }
+                File n = localFiles.get(ni); 
+                playTrack(n.getAbsolutePath(), n.getName(), "Local");
+            }
+        } else if (config.activeMode == SonicPulseConfig.SessionMode.HISTORY) {
+            List<SonicPulseConfig.HistoryEntry> hist = config.history.stream().filter(e -> !e.favorite).sorted(Comparator.comparing(e -> e.label)).collect(Collectors.toList());
+            if (!hist.isEmpty()) {
+                int ni = 0; 
+                if (curUri != null) { 
+                    for (int i = 0; i < hist.size(); i++) { 
+                        if (hist.get(i).url.equals(curUri)) { ni = (i + 1) % hist.size(); break; } 
+                    } 
+                }
+                SonicPulseConfig.HistoryEntry n = hist.get(ni); 
+                playTrack(n.url, n.label, n.type);
+            }
+        }
     }
 
     public void tick() {}
