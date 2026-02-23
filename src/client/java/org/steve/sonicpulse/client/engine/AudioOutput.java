@@ -26,11 +26,11 @@ public class AudioOutput {
     private static final int SAMPLE_RATE = 48000;
     private static final int HARDWARE_BUFFER_SIZE = SAMPLE_RATE * 4; 
 
-    // BIQUAD FILTER STATES (For real-time EQ)
+    // BIQUAD FILTER STATES
     private float b0, b1, b2, a1, a2;
     private float t_b0, t_b1, t_b2, t_a1, t_a2;
-    private float x1L, x2L, y1L, y2L, x1R, x2R, y1R, y2R; // Bass state
-    private float tx1L, tx2L, ty1L, ty2L, tx1R, tx2R, ty1R, ty2R; // Treble state
+    private float x1L, x2L, y1L, y2L, x1R, x2R, y1R, y2R;
+    private float tx1L, tx2L, ty1L, ty2L, tx1R, tx2R, ty1R, ty2R;
 
     public AudioOutput(AudioPlayer player) { this.player = player; }
     public float[] getAmplitudes() { return amplitudes.clone(); }
@@ -59,47 +59,33 @@ public class AudioOutput {
 
     private void updateFilterCoefficients() {
         SonicPulseConfig cfg = SonicPulseConfig.get();
-        // BASS: Low Shelf at 150Hz
-        float bassDb = cfg.eqBass * 15.0f; // Massive 15dB range
-        setupLowShelf(150, bassDb);
-        // TREBLE: High Shelf at 4000Hz
-        float trebleDb = cfg.eqTreble * 15.0f;
-        setupHighShelf(4000, trebleDb);
+        setupLowShelf(150, cfg.eqBass * 15.0f);
+        setupHighShelf(4000, cfg.eqTreble * 15.0f);
     }
 
     private void setupLowShelf(float freq, float db) {
         float A = (float) Math.pow(10, db / 40);
         float omega = (float) (2 * Math.PI * freq / SAMPLE_RATE);
-        float sn = (float) Math.sin(omega);
-        float cs = (float) Math.cos(omega);
-        float beta = (float) Math.sqrt(A) / 1.0f; // Q factor 1.0
-        float alpha = sn / 2 * (float) Math.sqrt((A + 1/A) * (1/beta - 1) + 2);
-
-        b0 = A*((A+1) - (A-1)*cs + 2*Math.max(0.1f,(float)Math.sqrt(A))*alpha);
+        float sn = (float) Math.sin(omega); float cs = (float) Math.cos(omega);
+        float alpha = sn / 2 * (float) Math.sqrt((A + 1/A) * (1/1.0f - 1) + 2);
+        b0 = A*((A+1) - (A-1)*cs + 2*(float)Math.sqrt(A)*alpha);
         b1 = 2*A*((A-1) - (A+1)*cs);
-        b2 = A*((A+1) - (A-1)*cs - 2*Math.max(0.1f,(float)Math.sqrt(A))*alpha);
-        float a0 = (A+1) + (A-1)*cs + 2*Math.max(0.1f,(float)Math.sqrt(A))*alpha;
-        a1 = -2*((A-1) + (A+1)*cs);
-        a2 = (A+1) + (A-1)*cs - 2*Math.max(0.1f,(float)Math.sqrt(A))*alpha;
-
+        b2 = A*((A+1) - (A-1)*cs - 2*(float)Math.sqrt(A)*alpha);
+        float a0 = (A+1) + (A-1)*cs + 2*(float)Math.sqrt(A)*alpha;
+        a1 = -2*((A-1) + (A+1)*cs); a2 = (A+1) + (A-1)*cs - 2*(float)Math.sqrt(A)*alpha;
         b0 /= a0; b1 /= a0; b2 /= a0; a1 /= a0; a2 /= a0;
     }
 
     private void setupHighShelf(float freq, float db) {
         float A = (float) Math.pow(10, db / 40);
         float omega = (float) (2 * Math.PI * freq / SAMPLE_RATE);
-        float sn = (float) Math.sin(omega);
-        float cs = (float) Math.cos(omega);
-        float beta = (float) Math.sqrt(A) / 1.0f;
-        float alpha = sn / 2 * (float) Math.sqrt((A + 1/A) * (1/beta - 1) + 2);
-
-        t_b0 = A*((A+1) + (A-1)*cs + 2*Math.max(0.1f,(float)Math.sqrt(A))*alpha);
+        float sn = (float) Math.sin(omega); float cs = (float) Math.cos(omega);
+        float alpha = sn / 2 * (float) Math.sqrt((A + 1/A) * (1/1.0f - 1) + 2);
+        t_b0 = A*((A+1) + (A-1)*cs + 2*(float)Math.sqrt(A)*alpha);
         t_b1 = -2*A*((A-1) + (A+1)*cs);
-        t_b2 = A*((A+1) + (A-1)*cs - 2*Math.max(0.1f,(float)Math.sqrt(A))*alpha);
-        float ta0 = (A+1) - (A-1)*cs + 2*Math.max(0.1f,(float)Math.sqrt(A))*alpha;
-        t_a1 = 2*((A-1) - (A+1)*cs);
-        t_a2 = (A+1) - (A-1)*cs - 2*Math.max(0.1f,(float)Math.sqrt(A))*alpha;
-
+        t_b2 = A*((A+1) + (A-1)*cs - 2*(float)Math.sqrt(A)*alpha);
+        float ta0 = (A+1) - (A-1)*cs + 2*(float)Math.sqrt(A)*alpha;
+        t_a1 = 2*((A-1) - (A+1)*cs); t_a2 = (A+1) - (A-1)*cs - 2*(float)Math.sqrt(A)*alpha;
         t_b0 /= ta0; t_b1 /= ta0; t_b2 /= ta0; t_a1 /= ta0; t_a2 /= ta0;
     }
     
@@ -123,38 +109,42 @@ public class AudioOutput {
                 if (dataToPlay != null) {
                     ensureLineOpen();
                     updateFilterCoefficients();
+                    float width = SonicPulseConfig.get().stereoWidth;
                     
-                    // APPLY THE BYTES-LEVEL DSP HERE (Instant Effect!)
                     for (int i = 0; i < dataToPlay.length; i += 4) {
                         float left = (short)((dataToPlay[i+1] << 8) | (dataToPlay[i] & 0xFF));
                         float right = (short)((dataToPlay[i+3] << 8) | (dataToPlay[i+2] & 0xFF));
 
-                        // Bass Biquad
+                        // 1. EQ Processing (Biquads)
                         float yL = b0*left + b1*x1L + b2*x2L - a1*y1L - a2*y2L;
                         x2L = x1L; x1L = left; y2L = y1L; y1L = yL;
                         float yR = b0*right + b1*x1R + b2*x2R - a1*y1R - a2*y2R;
                         x2R = x1R; x1R = right; y2R = y1R; y1R = yR;
 
-                        // Treble Biquad
                         float tyL = t_b0*yL + t_b1*tx1L + t_b2*tx2L - t_a1*ty1L - t_a2*ty2L;
                         tx2L = tx1L; tx1L = yL; ty2L = ty1L; ty1L = tyL;
                         float tyR = t_b0*yR + t_b1*tx1R + t_b2*tx2R - t_a1*ty1R - t_a2*ty2R;
                         tx2R = tx1R; tx1R = yR; ty2R = ty1R; ty1R = tyR;
 
-                        short outL = (short)Math.max(-32768, Math.min(32767, tyL));
-                        short outR = (short)Math.max(-32768, Math.min(32767, tyR));
+                        // 2. Mid-Side Stereo Widening Matrix
+                        float mid = (tyL + tyR) * 0.5f;
+                        float side = (tyR - tyL) * 0.5f;
+                        side *= width; // Apply widening to the side channel difference
+
+                        float outL_f = mid - side;
+                        float outR_f = mid + side;
+
+                        short outL = (short)Math.max(-32768, Math.min(32767, outL_f));
+                        short outR = (short)Math.max(-32768, Math.min(32767, outR_f));
 
                         dataToPlay[i] = (byte)(outL & 0xFF); dataToPlay[i+1] = (byte)((outL >> 8) & 0xFF);
                         dataToPlay[i+2] = (byte)(outR & 0xFF); dataToPlay[i+3] = (byte)((outR >> 8) & 0xFF);
                     }
-
-                    int validLen = dataToPlay.length - (dataToPlay.length % 4);
-                    line.write(dataToPlay, 0, validLen);
+                    line.write(dataToPlay, 0, dataToPlay.length - (dataToPlay.length % 4));
                     updateAmplitudes(dataToPlay);
                 } else {
                     Arrays.fill(amplitudes, 0);
-                    long idleTime = System.currentTimeMillis() - lastFrameTime;
-                    Thread.sleep(idleTime > IDLE_THRESHOLD_MS ? 500 : 10);
+                    Thread.sleep(10);
                 }
             } catch (Exception e) { e.printStackTrace(); }
         }

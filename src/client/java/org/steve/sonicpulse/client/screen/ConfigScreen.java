@@ -359,17 +359,25 @@ public class ConfigScreen extends Screen {
 
                 SliderWidget bassSlider = new SliderWidget(contentX, tabY + 100, colW7, 20, Text.literal("Bass: " + (int)(config.eqBass * 100) + "%"), (config.eqBass + 1.0) / 2.0) {
                     @Override protected void updateMessage() { setMessage(Text.literal("Bass: " + (int)(config.eqBass * 100) + "%")); }
-                    @Override protected void applyValue() { config.eqBass = (float)(value * 2.0 - 1.0); SonicPulseConfig.save(); SonicPulseClient.getEngine().updateEqualizer(); }
+                    @Override protected void applyValue() { config.eqBass = (float)(value * 2.0 - 1.0); SonicPulseConfig.save(); }
                 };
                 bassSlider.setTooltip(tt("Boost or cut low frequency bass (-100% to +100%)"));
                 addTinted(bassSlider, tc);
 
                 SliderWidget trebleSlider = new SliderWidget(contentX + colW7 + 10, tabY + 100, colW7, 20, Text.literal("Treble: " + (int)(config.eqTreble * 100) + "%"), (config.eqTreble + 1.0) / 2.0) {
                     @Override protected void updateMessage() { setMessage(Text.literal("Treble: " + (int)(config.eqTreble * 100) + "%")); }
-                    @Override protected void applyValue() { config.eqTreble = (float)(value * 2.0 - 1.0); SonicPulseConfig.save(); SonicPulseClient.getEngine().updateEqualizer(); }
+                    @Override protected void applyValue() { config.eqTreble = (float)(value * 2.0 - 1.0); SonicPulseConfig.save(); }
                 };
                 trebleSlider.setTooltip(tt("Boost or cut high frequency treble (-100% to +100%)"));
                 addTinted(trebleSlider, tc);
+
+                // NEW: STEREO WIDTH SLIDER
+                SliderWidget widthSl = new SliderWidget(contentX, tabY + 125, contentW, 20, Text.literal("Stereo Width: " + (int)(config.stereoWidth * 100) + "%"), (config.stereoWidth / 2.0)) { 
+                    @Override protected void updateMessage() { setMessage(Text.literal("Stereo Width: " + (int)(config.stereoWidth * 100) + "%")); } 
+                    @Override protected void applyValue() { config.stereoWidth = (float)(value * 2.0); SonicPulseConfig.save(); } 
+                };
+                widthSl.setTooltip(tt("Expand the soundstage (0% = Mono, 100% = Normal, 200% = Super Wide)"));
+                addTinted(widthSl, tc);
                 break;
                 
             case 8: // ABOUT
