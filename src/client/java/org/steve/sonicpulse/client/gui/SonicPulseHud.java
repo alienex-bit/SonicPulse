@@ -24,19 +24,16 @@ public class SonicPulseHud implements HudRenderCallback {
     private long cachedPosSeconds = -1;
     private Text cachedTimeText = Text.empty(), cachedTagText = Text.empty();
     
-    private String rawTrackNameCache = null, safeTrackNameCache = null, marqueeCache = null;
+    // Marquee Optimization
+    private String rawTrackNameCache = null, safeTrackNameCache = null, marqueeCache = null, currentScrolledText = "";
     private int marqueeLenCache = 0;
-    private long marqueeStartTime = 0;
-    private float baselineBass = 0, pulseLerp = 0, heatmapLerp = 0;
+    private long lastMarqueeUpdate = 0;
 
+    private float baselineBass = 0, pulseLerp = 0, heatmapLerp = 0;
+    private final List<Integer> activeSlots = new ArrayList<>();
+    private final int[][] vhsGlitchData = new int[6][4];
     private long vhsGlitchEndTime = 0;
     private int vhsGlitchBands = 0;
-    private final int[][] vhsGlitchData = new int[6][4];
-
-    private int lastScreenWidth = -1, lastRibbonWidth = -1;
-    private float lastScale = -1, lastHudWidthCfg = -1;
-    private int slotWidth = -1;
-    private final List<Integer> activeSlots = new ArrayList<>();
 
     private static final int HSB_LUT_SIZE = 256;
     private static final int[] HSB_LUT = new int[HSB_LUT_SIZE];
@@ -60,11 +57,7 @@ public class SonicPulseHud implements HudRenderCallback {
         }
     }
 
-    private static int hsbLookup(float hue) {
-        int idx = (int)(((hue % 1.0f + 1.0f) % 1.0f) * HSB_LUT_SIZE) % HSB_LUT_SIZE;
-        return HSB_LUT[idx];
-    }
-
+    private static int hsbLookup(float hue) { return HSB_LUT[(int)(((hue % 1.0f + 1.0f) % 1.0f) * HSB_LUT_SIZE) % HSB_LUT_SIZE]; }
     private Text style(String text) { return Text.literal(text).setStyle(ROBOTO); }
     private Text buildTag(String icon, String name) { return Text.empty().append(Text.literal("[ ").setStyle(ROBOTO)).append(Text.literal(icon)).append(Text.literal(" " + name + " ]").setStyle(ROBOTO)); }
 
@@ -74,8 +67,7 @@ public class SonicPulseHud implements HudRenderCallback {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null || client.options.hudHidden) return;
         SonicPulseConfig cfg = SonicPulseConfig.get();
-        if (!cfg.hudVisible) return;
-        if (!isPreview && client.currentScreen != null) return;
+        if (!cfg.hudVisible || (!isPreview && client.currentScreen != null)) return;
 
         AudioTrack track = SonicPulseClient.getEngine().getPlayer().getPlayingTrack();
         if (track == null && !isPreview) return;
@@ -83,7 +75,6 @@ public class SonicPulseHud implements HudRenderCallback {
         int screenW = client.getWindow().getScaledWidth();
         float scale = cfg.hudScale;
         
-        // RECALCULATE FLEX SLOTS
         activeSlots.clear();
         int[] seq = switch(cfg.ribbonLayout) {
             case LOG_TRK_BAR -> new int[]{1, 2, 3}; case LOG_BAR_TRK -> new int[]{1, 3, 2};
@@ -96,20 +87,19 @@ public class SonicPulseHud implements HudRenderCallback {
             if (i == 3 && cfg.showBars) activeSlots.add(3);
         }
 
-        int maxRibbonWidth = (int)(screenW / scale);
-        lastRibbonWidth = Math.max(50, (int)(maxRibbonWidth * cfg.hudWidth));
-        slotWidth = lastRibbonWidth / Math.max(1, activeSlots.size());
+        int ribbonWidth = Math.max(50, (int)((screenW / scale) * cfg.hudWidth));
+        int slotWidth = ribbonWidth / Math.max(1, activeSlots.size());
 
         context.getMatrices().push();
         context.getMatrices().scale(scale, scale, 1.0f);
-        context.getMatrices().translate(( (screenW / scale) - lastRibbonWidth) / 2.0f, 0.0f, 0.0f);
-        context.fill(0, 0, lastRibbonWidth, 35, cfg.skin.getBgColor());
+        context.getMatrices().translate(((screenW / scale) - ribbonWidth) / 2.0f, 0.0f, 0.0f);
+        context.fill(0, 0, ribbonWidth, 35, cfg.skin.getBgColor());
 
         float[] vData = SonicPulseClient.getEngine().getVisualizerData();
-        if (vData != null && vData.length >= 16) renderEffects(context, cfg, vData, lastRibbonWidth);
+        if (vData != null && vData.length >= 16) renderEffects(context, cfg, vData, ribbonWidth);
 
-        context.fill(0, 34, lastRibbonWidth, 35, cfg.skin.getBorderColor());
-        renderElements(context, client.textRenderer, cfg, track, lastRibbonWidth);
+        context.fill(0, 34, ribbonWidth, 35, cfg.skin.getBorderColor());
+        renderElements(context, client.textRenderer, cfg, track, ribbonWidth, slotWidth);
         context.getMatrices().pop();
     }
 
@@ -120,33 +110,33 @@ public class SonicPulseHud implements HudRenderCallback {
         int centerX = ribbonWidth / 2;
 
         if (cfg.bgEffect == SonicPulseConfig.BgEffect.PULSE) {
-            float mult = cfg.pulseIntensity == SonicPulseConfig.PulseIntensity.SUBTLE ? 4.0f : (cfg.pulseIntensity == SonicPulseConfig.PulseIntensity.OVERDRIVE ? 24.0f : 12.0f);
+            float mult = switch(cfg.pulseIntensity) { case SUBTLE -> 4.0f; case OVERDRIVE -> 24.0f; default -> 12.0f; };
             pulseLerp += (Math.min(spike * mult, 1.0f) - pulseLerp) * (cfg.pulseDecay == SonicPulseConfig.PulseDecay.SNAPPY ? 0.4f : 0.15f);
             int alpha = (int)(pulseLerp * 180);
             if (alpha > 5) context.fillGradient(0, 0, ribbonWidth, 35, ((alpha / 3) << 24) | (cfg.barColor & 0xFFFFFF), (alpha << 24) | (cfg.barColor & 0xFFFFFF));
         } else if (cfg.bgEffect == SonicPulseConfig.BgEffect.AURA) {
             float vol = 0; for (float f : vData) vol += f; vol /= 16f;
-            float timeDiv = cfg.auraSpeed == SonicPulseConfig.AuraSpeed.CHILL ? 24000f : (cfg.auraSpeed == SonicPulseConfig.AuraSpeed.WARP ? 4000f : 12000f);
+            float timeDiv = switch(cfg.auraSpeed) { case CHILL -> 24000f; case WARP -> 4000f; default -> 12000f; };
             float time = (System.currentTimeMillis() % (long)timeDiv) / timeDiv;
             int alpha = 30 + (int)(Math.min(vol * 2.5f, 1.0f) * 110);
             int segments = 24; float segW = (float)ribbonWidth / segments;
             for (int s = 0; s < segments; s++) {
-                float hueL = 0.7f + (float)Math.sin(time * Math.PI * 2 + (s * 0.25f)) * 0.2f;
-                float hueR = 0.7f + (float)Math.sin(time * Math.PI * 2 + ((s+1) * 0.25f)) * 0.2f;
-                if (cfg.auraPalette == SonicPulseConfig.AuraPalette.AURORA) { hueL = 0.5f + (hueL%1f)*0.35f; hueR = 0.5f + (hueR%1f)*0.35f; }
-                context.fillGradient((int)(s*segW), 0, (int)((s+1)*segW), 35, (alpha << 24) | (hsbLookup(hueL) & 0xFFFFFF), ((alpha/4) << 24) | (hsbLookup(hueR) & 0xFFFFFF));
+                float hL = 0.7f + (float)Math.sin(time * Math.PI * 2 + (s * 0.25f)) * 0.2f;
+                float hR = 0.7f + (float)Math.sin(time * Math.PI * 2 + ((s+1) * 0.25f)) * 0.2f;
+                if (cfg.auraPalette == SonicPulseConfig.AuraPalette.AURORA) { hL = 0.5f + (hL%1f)*0.35f; hR = 0.5f + (hR%1f)*0.35f; }
+                context.fillGradient((int)(s*segW), 0, (int)((s+1)*segW), 35, (alpha << 24) | (hsbLookup(hL) & 0xFFFFFF), ((alpha/4) << 24) | (hsbLookup(hR) & 0xFFFFFF));
             }
         } else if (cfg.bgEffect == SonicPulseConfig.BgEffect.VHS) {
             int scan = cfg.vhsScanlines == SonicPulseConfig.VhsScanlines.OFF ? 0 : (cfg.vhsScanlines == SonicPulseConfig.VhsScanlines.DARK ? 0x33000000 : 0x1A000000);
             if (scan != 0) for (int y = 0; y < 35; y += 2) context.fill(0, y, ribbonWidth, y + 1, scan);
             long now = System.currentTimeMillis();
-            float thresh = cfg.vhsGlitch == SonicPulseConfig.VhsGlitch.MINOR ? 0.18f : (cfg.vhsGlitch == SonicPulseConfig.VhsGlitch.CORRUPTED ? 0.08f : 0.12f);
+            float thresh = switch(cfg.vhsGlitch) { case MINOR -> 0.18f; case CORRUPTED -> 0.08f; default -> 0.12f; };
             if (spike > thresh && now > vhsGlitchEndTime) {
                 vhsGlitchBands = (cfg.vhsGlitch == SonicPulseConfig.VhsGlitch.CORRUPTED ? 4 : 2) + (int)(spike * 5);
                 vhsGlitchEndTime = now + 60 + (long)(spike * 80);
                 for (int i = 0; i < Math.min(vhsGlitchBands, 6); i++) {
-                    vhsGlitchData[i][0] = (int)(Math.random() * 35); vhsGlitchData[i][1] = 2 + (int)(Math.random() * 6);
-                    vhsGlitchData[i][2] = (int)(Math.random() * 20) - 10; vhsGlitchData[i][3] = (int)(Math.random() * 2);
+                    vhsGlitchData[i][0] = (int)(Math.random()*35); vhsGlitchData[i][1] = 2+(int)(Math.random()*6);
+                    vhsGlitchData[i][2] = (int)(Math.random()*20)-10; vhsGlitchData[i][3] = (int)(Math.random()*2);
                 }
             }
             if (now <= vhsGlitchEndTime) {
@@ -160,8 +150,8 @@ public class SonicPulseHud implements HudRenderCallback {
             float target = (Math.min(vol * 1.5f, 0.3f) + Math.min(spike * 4f, 0.7f)) * (cfg.heatmapSpread == SonicPulseConfig.HeatmapSpread.CONFINED ? 0.45f : 1f);
             heatmapLerp += (target - heatmapLerp) * (target > heatmapLerp ? 0.3f : 0.05f);
             int slices = 30; float sliceW = (ribbonWidth / 2f) / slices;
-            float cHue = cfg.heatmapScale == SonicPulseConfig.HeatmapScale.FIRE ? 0f : (cfg.heatmapScale == SonicPulseConfig.HeatmapScale.PLASMA ? 0.85f : 0.3f);
-            float eHue = cfg.heatmapScale == SonicPulseConfig.HeatmapScale.FIRE ? 0.65f : (cfg.heatmapScale == SonicPulseConfig.HeatmapScale.PLASMA ? 0.5f : 0.75f);
+            float cHue = switch(cfg.heatmapScale) { case PLASMA -> 0.85f; case TOXIC -> 0.3f; default -> 0f; };
+            float eHue = switch(cfg.heatmapScale) { case PLASMA -> 0.5f; case TOXIC -> 0.75f; default -> 0.65f; };
             for (int s = 0; s < slices; s++) {
                 float pct = (float)s / slices; float aPct = Math.max(0, 1f - (pct / Math.max(0.01f, heatmapLerp)));
                 if (aPct <= 0.01f) continue;
@@ -172,7 +162,7 @@ public class SonicPulseHud implements HudRenderCallback {
         }
     }
 
-    private void renderElements(DrawContext context, TextRenderer textRenderer, SonicPulseConfig cfg, AudioTrack track, int ribbonWidth) {
+    private void renderElements(DrawContext context, TextRenderer textRenderer, SonicPulseConfig cfg, AudioTrack track, int ribbonWidth, int slotWidth) {
         boolean playing = track != null;
         for (int i = 0; i < activeSlots.size(); i++) {
             int slotType = activeSlots.get(i);
@@ -202,14 +192,19 @@ public class SonicPulseHud implements HudRenderCallback {
                     if (!name.equals(rawTrackNameCache)) {
                         rawTrackNameCache = name; safeTrackNameCache = name.replace("|", " - ");
                         marqueeCache = safeTrackNameCache + "   •   " + safeTrackNameCache + "   •   ";
-                        marqueeLenCache = safeTrackNameCache.length() + 7; marqueeStartTime = System.currentTimeMillis();
+                        marqueeLenCache = safeTrackNameCache.length() + 7;
                     }
                     float tScale = 1.35f; int maxW = slotWidth - 20; int sTxtW = (int)(textRenderer.getWidth(safeTrackNameCache) * tScale);
                     context.getMatrices().push();
                     if (sTxtW > maxW) {
-                        String sc = marqueeCache.substring((int)(((System.currentTimeMillis() - marqueeStartTime) / 150) % marqueeLenCache));
+                        // Tick-based Update Optimization
+                        if (System.currentTimeMillis() - lastMarqueeUpdate > 100) {
+                            int offset = (int)((System.currentTimeMillis() / 150) % marqueeLenCache);
+                            currentScrolledText = textRenderer.trimToWidth(marqueeCache.substring(offset), (int)(maxW/tScale));
+                            lastMarqueeUpdate = System.currentTimeMillis();
+                        }
                         context.getMatrices().translate(slotCenterX - (maxW/2f), 11, 0); context.getMatrices().scale(tScale, tScale, 1f);
-                        context.drawText(textRenderer, style(textRenderer.trimToWidth(sc, (int)(maxW/tScale))), 0, 0, 0xFFFFFFFF, false);
+                        context.drawText(textRenderer, style(currentScrolledText), 0, 0, 0xFFFFFFFF, false);
                     } else {
                         context.getMatrices().translate(slotCenterX - (sTxtW/2f), 11, 0); context.getMatrices().scale(tScale, tScale, 1f);
                         context.drawText(textRenderer, style(safeTrackNameCache), 0, 0, 0xFFFFFFFF, false);
@@ -218,8 +213,7 @@ public class SonicPulseHud implements HudRenderCallback {
                 }
             } else if (slotType == 3) { // BARS
                 float[] vData = SonicPulseClient.getEngine().getVisualizerData();
-                int bCount = 16, bW = 6, bS = 2; int tW = bCount * (bW + bS) - bS;
-                int startX = slotCenterX - (tW / 2);
+                int bCount = 16, bW = 6, bS = 2; int startX = slotCenterX - ((bCount * (bW + bS) - bS) / 2);
                 for (int j = 0; j < bCount; j++) {
                     float amp = (vData != null && vData.length > j) ? vData[j] : 0f;
                     int bH = Math.max((int)(amp * 25), 1);
