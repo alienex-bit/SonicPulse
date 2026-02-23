@@ -1,35 +1,61 @@
-====================================================================================================
-                       🎵 SONICPULSE STRATEGIC ROADMAP (Minecraft 1.21.4)
-====================================================================================================
+# 🎵 SonicPulse Strategic Roadmap (Minecraft 1.21.4)
 
- [COMPLETE]  | Phase 1: Performance & Stability ⚙️ | ModMenu compatibility: Full integration.
- [COMPLETE]  | Phase 1: Performance & Stability ⚙️ | Idle Throttling: FFT "Sleep Mode" implemented.
- [  TODO  ]  | Phase 1: Performance & Stability ⚙️ | Buffer Optimization: Refine line.write logic.
- [COMPLETE]  | Phase 1: Performance & Stability ⚙️ | Resource Cleanup: Shutdown hooks integrated.
- [  TODO  ]  | Phase 1: Performance & Stability ⚙️ | Stream Buffering: Configurable latency buffer.
-             |                                    
- [  TODO  ]  | Phase 2: Audio Fidelity & UX 🎧     | Audio Engine Config Tab: Real-time UI controls.
- [  TODO  ]  | Phase 2: Audio Fidelity & UX 🎧     | DSP Equalizer: Gain sliders for Bass/Treble.
- [  TODO  ]  | Phase 2: Audio Fidelity & UX 🎧     | Stereo Widening: Immersive soundstage mod.
- [  TODO  ]  | Phase 2: Audio Fidelity & UX 🎧     | Environmental Reverb: Virtual room presets.
- [  TODO  ]  | Phase 2: Audio Fidelity & UX 🎧     | Drag-and-Drop HUD: Interactive positioning.
-             |                                    
- [  TODO  ]  | Phase 3: Social & Integration 🌐    | Discord Rich Presence: Status integration.
- [  TODO  ]  | Phase 3: Social & Integration 🌐    | Sync-Link Sharing: Chat URLs via History.
- [  TODO  ]  | Phase 3: Social & Integration 🌐    | Server Radio: Wide broadcasting logic.
-             |                                    
- [  TODO  ]  | Phase 4: HUD Refinements 🎨         | Color Themes: Curated & custom palettes.
- [  TODO  ]  | Phase 4: HUD Refinements 🎨         | Typography: Selectable fonts & scaling.
- [  TODO  ]  | Phase 4: HUD Refinements 🎨         | Minimal Effects: CPU-friendly peak pulsing.
- [  TODO  ]  | Phase 4: HUD Refinements 🎨         | Background Panels: Opacity & corner styles.
- [  TODO  ]  | Phase 4: HUD Refinements 🎨         | Accessibility: Contrast & motion modes.
- [  TODO  ]  | Phase 4: HUD Refinements 🎨         | Per-Element Styles: Individual overrides.
- [  TODO  ]  | Phase 4: HUD Refinements 🎨         | Live Preview: Real-time workbench view.
- [  TODO  ]  | Phase 4: HUD Refinements 🎨         | Performance Guardrails: "Low CPU Mode".
- [  TODO  ]  | Phase 4: HUD Refinements 🎨         | Documentation: Example theme presets.
- [COMPLETE]  | Phase 4: HUD Refinements 🎨         | Favourite/History: Quick-access controls.
-                                                  
- [  TODO  ]  | Phase 5: Experimental 🧪            | 3D Positional Audio: Jukebox-linked fading.
- [  TODO  ]  | Phase 5: Experimental 🧪            | Redstone-Sync: Music-reactive triggers.
- [  TODO  ]  | Phase 5: Experimental 🧪            | Dynamic Metadata: Fetching for raw URLs.
-----------------------------------------------------------------------------------------------------
+## 🎯 Project Vision
+SonicPulse aims to be the most performant and aesthetically versatile media HUD for the Fabric ecosystem, providing professional-grade audio visualization and stream management without impacting game stability.
+
+---
+
+## ⚙️ Phase 1: Performance & Stability
+*Focusing on resource efficiency, thread safety, and seamless integration.*
+
+- [x] **ModMenu Compatibility**: Metadata display and configuration screen integration.
+- [x] **Idle Throttling**: FFT "Sleep Mode" for `AudioOutput` when music is stopped or the HUD is hidden.
+- [ ] **Buffer Optimization**: Implementation of dynamic buffer sizing in `line.write` to eliminate audio error logs.
+- [x] **Resource Cleanup**: Critical shutdown hooks for LavaPlayer and OpenAL to prevent memory leaks.
+- [ ] **Stream Buffering**: Configurable latency buffer for high-latency or low-bandwidth networks.
+
+---
+
+## 🎧 Phase 2: Audio Fidelity & UX
+*Enhancing the auditory experience and user control interfaces.*
+
+- [ ] **Audio Engine Config Tab**: Dedicated sub-menu for real-time engine manipulation.
+- [ ] **DSP Equalizer**: Frequency-specific gain sliders for Bass and Treble.
+- [ ] **Stereo Widening**: Immersive soundstage modification logic.
+- [ ] **Environmental Reverb**: Virtual room presets including Hall, Cave, and Large Room.
+- [ ] **Drag-and-Drop HUD**: Interactive "Workbench Mode" for pixel-perfect positioning.
+
+---
+
+## 🌐 Phase 3: Social & Integration
+*Connecting SonicPulse with external platforms and multiplayer environments.*
+
+- [ ] **Discord Rich Presence**: Optional status integration for track titles and artist info.
+- [ ] **Sync-Link Sharing**: Quick-share clickable URLs in Minecraft chat from the History tab.
+- [ ] **Server Radio**: Logic expansion for localized server-wide broadcasting.
+
+---
+
+## 🎨 Phase 4: HUD Refinements
+*Deep customization and advanced visual styling options.*
+
+- [ ] **Color Themes & Palettes**: Curated presets (Neon, Retro, Cyber) and custom element modes.
+- [ ] **Typography Options**: Selectable monospace/UI fonts with bold and outline toggles.
+- [ ] **Minimal Effects**: CPU-friendly pulsing and peak-tinting visual effects.
+- [ ] **Background Panels**: Semi-transparent rectangular panels with configurable opacity.
+- [ ] **Accessibility Modes**: High-contrast palettes and reduced motion options.
+- [ ] **Live Preview**: Real-time workbench preview for style modifications.
+- [ ] **Performance Guardrails**: "Low CPU Mode" and safe visual defaults.
+- [x] **Favourite / History Config**: Quick-access, sorting, and retention controls.
+
+---
+
+## 🧪 Phase 5: Experimental
+*Cutting-edge features and physical world interactions.*
+
+- [ ] **3D Positional Audio**: Distance-based fading and panning linked to Jukebox blocks.
+- [ ] **Redstone-Sync Visuals**: Music-reactive Redstone triggers based on amplitude data.
+- [ ] **Dynamic Metadata Fetching**: Automatic labeling for raw URLs lacking metadata.
+
+---
+*Last Updated: February 2026*
