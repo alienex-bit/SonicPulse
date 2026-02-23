@@ -25,7 +25,6 @@ public class SonicPulseHud implements HudRenderCallback {
     private long cachedPosSeconds = -1;
     private Text cachedTimeText = Text.empty(), cachedTagText = Text.empty();
     
-    // Marquee Optimization
     private String rawTrackNameCache = null, safeTrackNameCache = null, marqueeCache = null, currentScrolledText = "";
     private int marqueeLenCache = 0;
     private long lastMarqueeUpdate = 0;
@@ -168,7 +167,6 @@ public class SonicPulseHud implements HudRenderCallback {
         boolean playing = track != null;
         SonicPulseEngine engine = SonicPulseClient.getEngine();
         
-        // VISUAL BUFFER BAR
         if (engine != null && engine.isBuffering() && cfg.showBufferingBar) {
             float progress = engine.getBufferProgress();
             context.fill(0, 34, (int)(ribbonWidth * progress), 35, 0xFF00FFFF); 
@@ -197,10 +195,25 @@ public class SonicPulseHud implements HudRenderCallback {
                     context.drawText(textRenderer, cachedTimeText, subX + tW, 18, 0xFFFFFFFF, false);
                 }
             } else if (slotType == 2 && (playing || (engine != null && engine.isBuffering()))) { // TRACK
-                String name = (cfg.currentTitle != null) ? cfg.currentTitle : (track != null ? track.getInfo().title : "Buffering Stream...");
-                if (name != null) {
-                    if (!name.equals(rawTrackNameCache)) {
-                        rawTrackNameCache = name; safeTrackNameCache = name.replace("|", " - ");
+                String baseName = (cfg.currentTitle != null) ? cfg.currentTitle : (track != null ? track.getInfo().title : "Loading...");
+                
+                // NEW TWO-LINE BUFFERING DISPLAY
+                if (engine != null && engine.isBuffering()) {
+                    int pct = (int)(engine.getBufferProgress() * 100);
+                    String topText = "§eBuffering... " + pct + "%";
+                    String bottomText = textRenderer.trimToWidth(baseName, slotWidth - 10);
+                    
+                    int tW = textRenderer.getWidth(topText);
+                    int bW = textRenderer.getWidth(bottomText);
+                    
+                    context.drawText(textRenderer, style(topText), slotCenterX - (tW / 2), 6, 0xFFFFFFFF, false);
+                    context.drawText(textRenderer, style("§7" + bottomText), slotCenterX - (bW / 2), 18, 0xFFFFFFFF, false);
+                } 
+                // STANDARD MARQUEE ONCE PLAYING
+                else if (baseName != null) {
+                    if (!baseName.equals(rawTrackNameCache)) {
+                        rawTrackNameCache = baseName; 
+                        safeTrackNameCache = baseName.replace("|", " - ");
                         marqueeCache = safeTrackNameCache + "   •   " + safeTrackNameCache + "   •   ";
                         marqueeLenCache = safeTrackNameCache.length() + 7;
                     }
