@@ -59,7 +59,6 @@ public class ConfigScreen extends Screen {
         "View mod information and credits"
     };
 
-    // Smart Tooltip Engine: Only returns a tooltip if the Master Toggle is ON
     private Tooltip tt(String text) {
         return config.showTooltips ? Tooltip.of(Text.literal(text)) : null;
     }
@@ -129,30 +128,42 @@ public class ConfigScreen extends Screen {
                 
             case 1: // VISUAL
                 int colW = (contentW / 2) - 5;
-                addDrawableChild(ButtonWidget.builder(Text.literal("HUD: " + (config.hudVisible ? "VISIBLE" : "HIDDEN")), b -> { config.hudVisible = !config.hudVisible; SonicPulseConfig.save(); refreshWidgets(); })
+                
+                addDrawableChild(ButtonWidget.builder(Text.literal("HUD: " + (config.hudVisible ? "§aVisible" : "§cHidden")), b -> { config.hudVisible = !config.hudVisible; SonicPulseConfig.save(); refreshWidgets(); })
                     .dimensions(contentX, tabY + 5, colW, 20).tooltip(tt("Enable or disable the entire SonicPulse ribbon")).build());
+                
                 addDrawableChild(ButtonWidget.builder(Text.literal("Skin: " + config.skin.getName().toUpperCase()), b -> { config.nextSkin(); refreshWidgets(); })
                     .dimensions(contentX, tabY + 30, colW, 20).tooltip(tt("Change the background and border styling")).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("Logo: " + (config.showLogo ? "ON" : "OFF")), b -> { config.showLogo = !config.showLogo; SonicPulseConfig.save(); refreshWidgets(); })
+                
+                addDrawableChild(ButtonWidget.builder(Text.literal("Logo: " + (config.showLogo ? "§aOn" : "§cOff")), b -> { config.showLogo = !config.showLogo; SonicPulseConfig.save(); refreshWidgets(); })
                     .dimensions(contentX, tabY + 55, colW, 20).tooltip(tt("Show or hide the SonicPulse text logo")).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("Track: " + (config.showTrack ? "ON" : "OFF")), b -> { config.showTrack = !config.showTrack; SonicPulseConfig.save(); refreshWidgets(); })
+                
+                addDrawableChild(ButtonWidget.builder(Text.literal("Track: " + (config.showTrack ? "§aOn" : "§cOff")), b -> { config.showTrack = !config.showTrack; SonicPulseConfig.save(); refreshWidgets(); })
                     .dimensions(contentX, tabY + 80, colW, 20).tooltip(tt("Show or hide the currently playing track name")).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("FX: " + config.bgEffect.name()), b -> { config.nextBgEffect(); refreshWidgets(); })
+                
+                String fxText = config.bgEffect == SonicPulseConfig.BgEffect.OFF ? "§cOff" : config.bgEffect.name();
+                addDrawableChild(ButtonWidget.builder(Text.literal("FX: " + fxText), b -> { config.nextBgEffect(); refreshWidgets(); })
                     .dimensions(contentX, tabY + 105, colW, 20).tooltip(tt("Select an audio-reactive background effect")).build());
                 
                 addDrawableChild(ButtonWidget.builder(Text.literal("Style: " + config.visStyle.name().replace("_", " ")), b -> { config.nextVisStyle(); refreshWidgets(); })
                     .dimensions(contentX + colW + 10, tabY + 5, colW, 20).tooltip(tt("Change how the audio equalizer bars are drawn")).build());
+                
                 addDrawableChild(ButtonWidget.builder(Text.literal("Bar Color: " + SonicPulseConfig.COLOR_NAMES[colorIndex].toUpperCase()), b -> { colorIndex = (colorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setColor(SonicPulseConfig.PALETTE[colorIndex]); refreshWidgets(); })
                     .dimensions(contentX + colW + 10, tabY + 30, colW, 20).tooltip(tt("Change the primary color of the equalizer bars")).build());
+                
                 addDrawableChild(ButtonWidget.builder(Text.literal("Title Color: " + SonicPulseConfig.COLOR_NAMES[titleColorIndex].toUpperCase()), b -> { titleColorIndex = (titleColorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setTitleColor(SonicPulseConfig.PALETTE[titleColorIndex]); refreshWidgets(); })
                     .dimensions(contentX + colW + 10, tabY + 55, colW, 20).tooltip(tt("Change the color of the SonicPulse text logo")).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("Bars: " + (config.showBars ? "ON" : "OFF")), b -> { config.showBars = !config.showBars; SonicPulseConfig.save(); refreshWidgets(); })
+                
+                addDrawableChild(ButtonWidget.builder(Text.literal("Bars: " + (config.showBars ? "§aOn" : "§cOff")), b -> { config.showBars = !config.showBars; SonicPulseConfig.save(); refreshWidgets(); })
                     .dimensions(contentX + colW + 10, tabY + 80, colW, 20).tooltip(tt("Show or hide the audio equalizer bars")).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("Tooltips: " + (config.showTooltips ? "ON" : "OFF")), b -> { config.showTooltips = !config.showTooltips; SonicPulseConfig.save(); refreshWidgets(); })
+                
+                addDrawableChild(ButtonWidget.builder(Text.literal("Tooltips: " + (config.showTooltips ? "§aOn" : "§cOff")), b -> { config.showTooltips = !config.showTooltips; SonicPulseConfig.save(); refreshWidgets(); })
                     .dimensions(contentX + colW + 10, tabY + 105, colW, 20).tooltip(tt("Enable or disable these hover descriptions globally")).build());
                 
                 if (config.bgEffect != SonicPulseConfig.BgEffect.OFF) {
+                    int divY = tabY + 132;
                     int subY = tabY + 145;
+                    
                     if (config.bgEffect == SonicPulseConfig.BgEffect.PULSE) {
                         addDrawableChild(ButtonWidget.builder(Text.literal("Intensity: " + config.pulseIntensity.name()), b -> { config.nextPulseIntensity(); refreshWidgets(); })
                             .dimensions(contentX, subY, colW, 20).tooltip(tt("Adjust the maximum brightness of the flash")).build());
@@ -166,7 +177,9 @@ public class ConfigScreen extends Screen {
                     } else if (config.bgEffect == SonicPulseConfig.BgEffect.VHS) {
                         addDrawableChild(ButtonWidget.builder(Text.literal("Glitch: " + config.vhsGlitch.name()), b -> { config.nextVhsGlitch(); refreshWidgets(); })
                             .dimensions(contentX, subY, colW, 20).tooltip(tt("Adjust the intensity of the beat-reactive pixel split")).build());
-                        addDrawableChild(ButtonWidget.builder(Text.literal("Scanlines: " + config.vhsScanlines.name()), b -> { config.nextVhsScanlines(); refreshWidgets(); })
+                        
+                        String scanText = config.vhsScanlines == SonicPulseConfig.VhsScanlines.OFF ? "§cOff" : config.vhsScanlines.name();
+                        addDrawableChild(ButtonWidget.builder(Text.literal("Scanlines: " + scanText), b -> { config.nextVhsScanlines(); refreshWidgets(); })
                             .dimensions(contentX + colW + 10, subY, colW, 20).tooltip(tt("Adjust the darkness of the static CRT lines")).build());
                     } else if (config.bgEffect == SonicPulseConfig.BgEffect.HEATMAP) {
                         addDrawableChild(ButtonWidget.builder(Text.literal("Color Map: " + config.heatmapScale.name().replace("_", " ")), b -> { config.nextHeatmapScale(); refreshWidgets(); })
@@ -473,7 +486,6 @@ public class ConfigScreen extends Screen {
             int qrY = tabY + 55;
             context.drawTexture(RenderLayer::getGuiTextured, QR_CODE, qrX, qrY, 0, 0, 50, 50, 50, 50);
             
-            // Custom render-time tooltip for the image
             if (config.showTooltips && mx >= qrX && mx <= qrX + 50 && my >= qrY && my <= qrY + 50) {
                 context.drawTooltip(textRenderer, Text.literal("Scan this code to donate and buy Steve a coffee!"), mx, my);
             }
