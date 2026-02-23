@@ -115,13 +115,13 @@ public class ConfigScreen extends Screen {
                 urlField.setTooltip(tt("Enter or paste a media URL here (YouTube, SoundCloud, etc.)"));
                 addDrawableChild(urlField);
                 
-                addDrawableChild(ButtonWidget.builder(Text.literal("LOAD & PLAY"), b -> { if(!urlField.getText().isEmpty()) { SonicPulseClient.getEngine().playTrack(urlField.getText(), urlField.getText(), "Web"); refreshWidgets(); } })
+                addDrawableChild(ButtonWidget.builder(Text.literal("LOAD & PLAY"), b -> { if(!urlField.getText().isEmpty()) { SonicPulseClient.getEngine().playTrack(urlField.getText(), urlField.getText(), "Remote"); refreshWidgets(); } })
                     .dimensions(contentX + contentW - 80, tabY + 15, 80, 20).tooltip(tt("Fetch and immediately play the entered URL")).build());
                 
-                List<SonicPulseConfig.HistoryEntry> webH = config.history.stream().filter(he -> !he.url.startsWith("file") && !he.url.matches("^[a-zA-Z]:\\\\.*")).sorted(Comparator.comparingLong((SonicPulseConfig.HistoryEntry e) -> e.lastPlayed).reversed()).limit(4).collect(Collectors.toList());
+                List<SonicPulseConfig.HistoryEntry> webH = config.history.stream().filter(he -> he.type.equalsIgnoreCase("Remote")).sorted(Comparator.comparingLong((SonicPulseConfig.HistoryEntry e) -> e.lastPlayed).reversed()).limit(4).collect(Collectors.toList());
                 for (int i = 0; i < webH.size(); i++) {
                     SonicPulseConfig.HistoryEntry e = webH.get(i); int bx = contentX + (i % 2) * (contentW / 2 + 2);
-                    addDrawableChild(ButtonWidget.builder(Text.literal("▶ " + textRenderer.trimToWidth(e.label, (contentW / 2) - 25)), b -> { SonicPulseClient.getEngine().playTrack(e.url, e.label, e.type); refreshWidgets(); })
+                    addDrawableChild(ButtonWidget.builder(Text.literal("▶ " + textRenderer.trimToWidth(e.label, (contentW / 2) - 25)), b -> { SonicPulseClient.getEngine().playTrack(e.url, e.label, "Remote"); refreshWidgets(); })
                         .dimensions(bx, tabY + 122 + (i / 2) * 22, (contentW / 2) - 2, 20).tooltip(tt("Click to replay this recent stream")).build());
                 }
                 break;
@@ -161,9 +161,7 @@ public class ConfigScreen extends Screen {
                     .dimensions(contentX + colW + 10, tabY + 105, colW, 20).tooltip(tt("Enable or disable these hover descriptions globally")).build());
                 
                 if (config.bgEffect != SonicPulseConfig.BgEffect.OFF) {
-                    int divY = tabY + 132;
                     int subY = tabY + 145;
-                    
                     if (config.bgEffect == SonicPulseConfig.BgEffect.PULSE) {
                         addDrawableChild(ButtonWidget.builder(Text.literal("Intensity: " + config.pulseIntensity.name()), b -> { config.nextPulseIntensity(); refreshWidgets(); })
                             .dimensions(contentX, subY, colW, 20).tooltip(tt("Adjust the maximum brightness of the flash")).build());
@@ -395,7 +393,7 @@ public class ConfigScreen extends Screen {
         
         boolean isEnginePlaying = SonicPulseClient.getEngine().isActiveOrPending();
         boolean isEnginePaused = SonicPulseClient.getEngine().getPlayer().isPaused();
-        String stateTxt = isEnginePlaying ? (isEnginePaused ? "§e[ ⏸ ] PAUSED" : "§a[ ♫ ] LIVE") : "§7[ ■ ] STANDBY";
+        String stateTxt = isEnginePlaying ? (isEnginePaused ? "§e[ ⏸ ]" : "§a[ ♫ ]") : "§7[ ■ ]";
         String trkTxt = (config.currentTitle != null && isEnginePlaying) ? " » §f" + textRenderer.trimToWidth(config.currentTitle, 115) : "";
         context.drawText(textRenderer, Text.literal(stateTxt + " §8(" + config.activeMode.name() + ")" + trkTxt), x + 5, y + 6, 0xFFFFFFFF, false);
         

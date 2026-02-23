@@ -160,7 +160,6 @@ public class SonicPulseHud implements HudRenderCallback {
                     int rgbLeft;
                     int rgbRight;
 
-                    // UPGRADED TO CYBERPUNK/AURORA: restricts the colors to Synthwave vibes instead of Monotone
                     if (cfg.auraPalette == SonicPulseConfig.AuraPalette.AURORA) {
                         float auroraLeftHue = 0.5f + (segHue[s] % 1.0f) * 0.35f;
                         float auroraRightHue = 0.5f + (segHue[s + 1] % 1.0f) * 0.35f;
@@ -224,14 +223,12 @@ public class SonicPulseHud implements HudRenderCallback {
                 for (int i = 0; i < 16; i++) vol += vData[i];
                 vol /= 16.0f;
 
-                // HEATMAP DYNAMIC FIX: Split the volume "hum" from the beat "spike" so it always breathes.
                 float baseCore = Math.min(vol * 1.5f, 0.3f); 
                 float spikeExpansion = Math.min(spike * 4.0f, 0.7f); 
                 float targetVol = baseCore + spikeExpansion;
 
                 if (cfg.heatmapSpread == SonicPulseConfig.HeatmapSpread.CONFINED) targetVol *= 0.45f;
 
-                // Fast outward explosion, slower retract
                 heatmapLerp += (targetVol - heatmapLerp) * (targetVol > heatmapLerp ? 0.3f : 0.05f);
 
                 int numSlices = 30;
@@ -289,9 +286,13 @@ public class SonicPulseHud implements HudRenderCallback {
             if (track != cachedTrack) {
                 cachedTrack = track;
                 String uri = track.getInfo().uri.toLowerCase();
-                boolean isLocal = uri.startsWith("file") || uri.matches("^[a-zA-Z]:\\\\.*");
+                
+                // SOURCE LABELING FIX: Check original metadata type for replays and radio
+                boolean isLocal = uri.startsWith("file") || uri.matches("^[a-zA-Z]:\\\\.*") || (SonicPulseConfig.get().activeMode == SonicPulseConfig.SessionMode.LOCAL);
+                boolean isRadio = (SonicPulseConfig.get().activeMode == SonicPulseConfig.SessionMode.RADIO);
                 
                 if (isLocal) { cachedTagText = buildTag("📁", "LOCAL"); cachedTagColor = 0xFFFF00FF; }
+                else if (isRadio) { cachedTagText = buildTag("📻", "RADIO"); cachedTagColor = 0xFF00FFFF; }
                 else if (track.getInfo().isStream) {
                     if (uri.contains("twitch.tv")) { cachedTagText = buildTag("📺", "TWITCH"); cachedTagColor = 0xFFA020F0; }
                     else if (uri.contains("youtube.com") || uri.contains("youtu.be")) { cachedTagText = buildTag("🔴", "YT LIVE"); cachedTagColor = 0xFFFF0000; }
@@ -301,7 +302,7 @@ public class SonicPulseHud implements HudRenderCallback {
                     else if (uri.contains("soundcloud.com")) { cachedTagText = buildTag("☁", "SOUNDCLOUD"); cachedTagColor = 0xFFFFA500; }
                     else if (uri.contains("bandcamp.com")) { cachedTagText = buildTag("🎧", "BANDCAMP"); cachedTagColor = 0xFF00CED1; }
                     else if (uri.contains("vimeo.com")) { cachedTagText = buildTag("🎬", "VIMEO"); cachedTagColor = 0xFF1E90FF; }
-                    else { cachedTagText = buildTag("🌐", "WEB AUDIO"); cachedTagColor = 0xFF00FFFF; }
+                    else { cachedTagText = buildTag("🌐", "REMOTE"); cachedTagColor = 0xFF00FFFF; }
                 }
                 cachedPosSeconds = -1;
             }
