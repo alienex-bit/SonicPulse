@@ -59,6 +59,7 @@ public class SonicPulseConfig {
     }
 
     public float hudScale = 1.0f; 
+    public float hudWidth = 1.0f; // NEW: Controls the horizontal squeeze
     public int barColor = 0xFF00BFFF, titleColor = 0xFFFF00FF, volume = 50;
     public Skin skin = Skin.DEFAULT;
     public SessionMode activeMode = SessionMode.NONE;
@@ -68,10 +69,8 @@ public class SonicPulseConfig {
     public String currentTitle = null, lastRadioUrl = "", localMusicPath = "";
     public List<HistoryEntry> history = new ArrayList<>();
     
-    // --- MASTER TOGGLES ---
     public boolean hudVisible = true, showLogo = true, showTrack = true, showBars = true, showTooltips = true;
 
-    // --- CONTROL DECK TWEAK SAVES ---
     public PulseIntensity pulseIntensity = PulseIntensity.NORMAL;
     public PulseDecay pulseDecay = PulseDecay.FLUID;
     public AuraSpeed auraSpeed = AuraSpeed.NORMAL;
@@ -138,13 +137,13 @@ public class SonicPulseConfig {
             else { instance = new SonicPulseConfig(); }
         }
         
-        // Armor Plating
         if (instance.activeMode == null) instance.activeMode = SessionMode.NONE;
         if (instance.bgEffect == null) instance.bgEffect = BgEffect.OFF;
         if (instance.skin == null) instance.skin = Skin.DEFAULT;
         if (instance.visStyle == null) instance.visStyle = VisualizerStyle.SOLID;
         if (instance.ribbonLayout == null) instance.ribbonLayout = RibbonLayout.LOG_TRK_BAR;
         if (instance.history == null) instance.history = new ArrayList<>();
+        if (instance.hudWidth == 0.0f) instance.hudWidth = 1.0f; // Armor plate for missing width data
         
         if (instance.pulseIntensity == null) instance.pulseIntensity = PulseIntensity.NORMAL;
         if (instance.pulseDecay == null) instance.pulseDecay = PulseDecay.FLUID;

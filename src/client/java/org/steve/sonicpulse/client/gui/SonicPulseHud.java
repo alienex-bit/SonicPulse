@@ -104,12 +104,15 @@ public class SonicPulseHud implements HudRenderCallback {
         int screenW = client.getWindow().getScaledWidth();
         float scale = cfg.hudScale;
 
-        int ribbonWidth = (int)(screenW / scale);
+        // HUD SQUEEZE ALGORITHM
+        int maxRibbonWidth = (int)(screenW / scale);
+        int ribbonWidth = Math.max(50, (int)(maxRibbonWidth * cfg.hudWidth));
+        float offsetX = (maxRibbonWidth - ribbonWidth) / 2.0f;
         int ribbonHeight = 35; 
         
         context.getMatrices().push();
-        context.getMatrices().translate(0.0f, 0.0f, 0.0f);
         context.getMatrices().scale(scale, scale, 1.0f);
+        context.getMatrices().translate(offsetX, 0.0f, 0.0f); // Centers the squeezed ribbon on screen
         
         context.fill(0, 0, ribbonWidth, ribbonHeight, cfg.skin.getBgColor());
 
@@ -259,70 +262,83 @@ public class SonicPulseHud implements HudRenderCallback {
 
         context.fill(0, ribbonHeight - 1, ribbonWidth, ribbonHeight, cfg.skin.getBorderColor());
 
-        int logoSlot = 0, trackSlot = 1, barsSlot = 2;
+        // FLEX-SPACE ENGINE
+        int logoSlot = -1, trackSlot = -1, barsSlot = -1;
+        int activeCount = 0;
+        int[] seq = new int[3];
+        
         switch(cfg.ribbonLayout) {
-            case LOG_TRK_BAR: logoSlot=0; trackSlot=1; barsSlot=2; break;
-            case LOG_BAR_TRK: logoSlot=0; barsSlot=1; trackSlot=2; break;
-            case TRK_LOG_BAR: trackSlot=0; logoSlot=1; barsSlot=2; break;
-            case TRK_BAR_LOG: trackSlot=0; barsSlot=1; logoSlot=2; break;
-            case BAR_LOG_TRK: barsSlot=0; logoSlot=1; trackSlot=2; break;
-            case BAR_TRK_LOG: barsSlot=0; trackSlot=1; logoSlot=2; break;
+            case LOG_TRK_BAR: seq = new int[]{1, 2, 3}; break;
+            case LOG_BAR_TRK: seq = new int[]{1, 3, 2}; break;
+            case TRK_LOG_BAR: seq = new int[]{2, 1, 3}; break;
+            case TRK_BAR_LOG: seq = new int[]{2, 3, 1}; break;
+            case BAR_LOG_TRK: seq = new int[]{3, 1, 2}; break;
+            case BAR_TRK_LOG: seq = new int[]{3, 2, 1}; break;
+        }
+        
+        for (int i : seq) {
+            if (i == 1 && cfg.showLogo) logoSlot = activeCount++;
+            if (i == 2 && cfg.showTrack) trackSlot = activeCount++;
+            if (i == 3 && cfg.showBars) barsSlot = activeCount++;
         }
 
-        int leftX = 10, rightX = ribbonWidth - 10;
+        int slotWidth = ribbonWidth / Math.max(1, activeCount);
         boolean playing = track != null;
 
-        int logoW = textRenderer.getWidth(LOGO_TEXT);
-        int logoDrawX = (logoSlot == 0) ? leftX : ((logoSlot == 1) ? centerX - (logoW / 2) : rightX - logoW);
-        
-        int logoY = playing ? 6 : 14;
-
-        if (cfg.showLogo) {
+        if (cfg.showLogo && logoSlot != -1) {
+            int logoW = textRenderer.getWidth(LOGO_TEXT);
+            int slotCenterX = (logoSlot * slotWidth) + (slotWidth / 2);
+            int logoDrawX = slotCenterX - (logoW / 2);
+            int logoY = playing ? 6 : 14;
+            
             int titleColor = cfg.titleColor | 0xFF000000;
             context.drawText(textRenderer, LOGO_TEXT, logoDrawX, logoY, titleColor, false);
+            
+            if (playing) {
+                if (track != cachedTrack) {
+                    cachedTrack = track;
+                    String uri = track.getInfo().uri.toLowerCase();
+                    boolean isLocal = uri.startsWith("file") || uri.matches("^[a-zA-Z]:\\\\.*") || (SonicPulseConfig.get().activeMode == SonicPulseConfig.SessionMode.LOCAL);
+                    boolean isRadio = (SonicPulseConfig.get().activeMode == SonicPulseConfig.SessionMode.RADIO);
+                    
+                    if (isLocal) { cachedTagText = buildTag("📁", "LOCAL"); cachedTagColor = 0xFFFF00FF; }
+                    else if (isRadio) { cachedTagText = buildTag("📻", "RADIO"); cachedTagColor = 0xFF00FFFF; }
+                    else if (track.getInfo().isStream) {
+                        if (uri.contains("twitch.tv")) { cachedTagText = buildTag("📺", "TWITCH"); cachedTagColor = 0xFFA020F0; }
+                        else if (uri.contains("youtube.com") || uri.contains("youtu.be")) { cachedTagText = buildTag("🔴", "YT LIVE"); cachedTagColor = 0xFFFF0000; }
+                        else { cachedTagText = buildTag("📻", "STREAM"); cachedTagColor = 0xFF00FFFF; }
+                    } else {
+                        if (uri.contains("youtube.com") || uri.contains("youtu.be")) { cachedTagText = buildTag("►", "YOUTUBE"); cachedTagColor = 0xFFFF0000; }
+                        else if (uri.contains("soundcloud.com")) { cachedTagText = buildTag("☁", "SOUNDCLOUD"); cachedTagColor = 0xFFFFA500; }
+                        else if (uri.contains("bandcamp.com")) { cachedTagText = buildTag("🎧", "BANDCAMP"); cachedTagColor = 0xFF00CED1; }
+                        else if (uri.contains("vimeo.com")) { cachedTagText = buildTag("🎬", "VIMEO"); cachedTagColor = 0xFF1E90FF; }
+                        else { cachedTagText = buildTag("🌐", "REMOTE"); cachedTagColor = 0xFF00FFFF; }
+                    }
+                    cachedPosSeconds = -1;
+                }
+
+                long currentPosSec = track.getPosition() / 1000;
+                if (currentPosSec != cachedPosSeconds) {
+                    cachedPosSeconds = currentPosSec;
+                    if (!track.getInfo().isStream) {
+                        long dur = track.getDuration() / 1000;
+                        cachedTimeText = style(String.format("  %02d:%02d / %02d:%02d", currentPosSec/60, currentPosSec%60, dur/60, dur%60));
+                    } else {
+                        cachedTimeText = style("");
+                    }
+                }
+
+                int tagW = textRenderer.getWidth(cachedTagText);
+                int timeW = textRenderer.getWidth(cachedTimeText);
+                int subTotalW = tagW + timeW;
+                int subX = slotCenterX - (subTotalW / 2);
+                
+                context.drawText(textRenderer, cachedTagText, subX, 18, cachedTagColor, false);
+                context.drawText(textRenderer, cachedTimeText, subX + tagW, 18, 0xFFFFFFFF, false);
+            }
         }
 
-        if (playing) {
-            if (track != cachedTrack) {
-                cachedTrack = track;
-                String uri = track.getInfo().uri.toLowerCase();
-                
-                // SOURCE LABELING FIX: Check original metadata type for replays and radio
-                boolean isLocal = uri.startsWith("file") || uri.matches("^[a-zA-Z]:\\\\.*") || (SonicPulseConfig.get().activeMode == SonicPulseConfig.SessionMode.LOCAL);
-                boolean isRadio = (SonicPulseConfig.get().activeMode == SonicPulseConfig.SessionMode.RADIO);
-                
-                if (isLocal) { cachedTagText = buildTag("📁", "LOCAL"); cachedTagColor = 0xFFFF00FF; }
-                else if (isRadio) { cachedTagText = buildTag("📻", "RADIO"); cachedTagColor = 0xFF00FFFF; }
-                else if (track.getInfo().isStream) {
-                    if (uri.contains("twitch.tv")) { cachedTagText = buildTag("📺", "TWITCH"); cachedTagColor = 0xFFA020F0; }
-                    else if (uri.contains("youtube.com") || uri.contains("youtu.be")) { cachedTagText = buildTag("🔴", "YT LIVE"); cachedTagColor = 0xFFFF0000; }
-                    else { cachedTagText = buildTag("📻", "STREAM"); cachedTagColor = 0xFF00FFFF; }
-                } else {
-                    if (uri.contains("youtube.com") || uri.contains("youtu.be")) { cachedTagText = buildTag("►", "YOUTUBE"); cachedTagColor = 0xFFFF0000; }
-                    else if (uri.contains("soundcloud.com")) { cachedTagText = buildTag("☁", "SOUNDCLOUD"); cachedTagColor = 0xFFFFA500; }
-                    else if (uri.contains("bandcamp.com")) { cachedTagText = buildTag("🎧", "BANDCAMP"); cachedTagColor = 0xFF00CED1; }
-                    else if (uri.contains("vimeo.com")) { cachedTagText = buildTag("🎬", "VIMEO"); cachedTagColor = 0xFF1E90FF; }
-                    else { cachedTagText = buildTag("🌐", "REMOTE"); cachedTagColor = 0xFF00FFFF; }
-                }
-                cachedPosSeconds = -1;
-            }
-
-            long currentPosSec = track.getPosition() / 1000;
-            if (currentPosSec != cachedPosSeconds) {
-                cachedPosSeconds = currentPosSec;
-                if (!track.getInfo().isStream) {
-                    long dur = track.getDuration() / 1000;
-                    cachedTimeText = style(String.format("  %02d:%02d / %02d:%02d", currentPosSec/60, currentPosSec%60, dur/60, dur%60));
-                } else {
-                    cachedTimeText = style("");
-                }
-            }
-
-            context.drawText(textRenderer, cachedTagText, logoDrawX, 18, cachedTagColor, false);
-            context.drawText(textRenderer, cachedTimeText, logoDrawX + textRenderer.getWidth(cachedTagText), 18, 0xFFFFFFFF, false);
-        }
-
-        if (cfg.showTrack && playing) {
+        if (cfg.showTrack && playing && trackSlot != -1) {
             String trackName = (cfg.currentTitle != null) ? cfg.currentTitle : track.getInfo().title;
             if (trackName != null) {
                 if (!trackName.equals(rawTrackNameCache)) {
@@ -335,12 +351,11 @@ public class SonicPulseHud implements HudRenderCallback {
                 }
 
                 Text fullTitleText = style(safeTrackNameCache);
-                int unscaledTextW = textRenderer.getWidth(fullTitleText);
-                
                 float trackScale = 1.35f;
-                int scaledTextW = (int)(unscaledTextW * trackScale);
+                int scaledTextW = (int)(textRenderer.getWidth(fullTitleText) * trackScale);
                 
-                int maxW = (ribbonWidth / 3) - 20;
+                int slotCenterX = (trackSlot * slotWidth) + (slotWidth / 2);
+                int maxW = slotWidth - 20; 
                 int drawX;
 
                 if (scaledTextW > maxW) {
@@ -349,7 +364,7 @@ public class SonicPulseHud implements HudRenderCallback {
                     String scrolled = marqueeCache.substring(offset);
                     String finalDisplay = textRenderer.trimToWidth(scrolled, unscaledMaxW);
                     
-                    drawX = (trackSlot == 0) ? leftX : ((trackSlot == 1) ? centerX - (maxW / 2) : rightX - maxW);
+                    drawX = slotCenterX - (maxW / 2);
                     
                     context.getMatrices().push();
                     context.getMatrices().translate(drawX, 11, 0);
@@ -357,7 +372,7 @@ public class SonicPulseHud implements HudRenderCallback {
                     context.drawText(textRenderer, style(finalDisplay), 0, 0, 0xFFFFFFFF, false);
                     context.getMatrices().pop();
                 } else {
-                    drawX = (trackSlot == 0) ? leftX : ((trackSlot == 1) ? centerX - (scaledTextW / 2) : rightX - scaledTextW);
+                    drawX = slotCenterX - (scaledTextW / 2);
                     
                     context.getMatrices().push();
                     context.getMatrices().translate(drawX, 11, 0);
@@ -368,12 +383,13 @@ public class SonicPulseHud implements HudRenderCallback {
             }
         }
 
-        if (cfg.showBars) {
+        if (cfg.showBars && barsSlot != -1) {
+            int slotCenterX = (barsSlot * slotWidth) + (slotWidth / 2);
             int barColor = cfg.barColor | 0xFF000000;
             int barsCount = 16, barWidth = 6, barSpacing = 2;
             int totalBarsWidth = barsCount * (barWidth + barSpacing) - barSpacing;
             
-            int drawStartX = (barsSlot == 0) ? leftX : ((barsSlot == 1) ? centerX - (totalBarsWidth / 2) : rightX - totalBarsWidth);
+            int drawStartX = slotCenterX - (totalBarsWidth / 2);
             int bottomY = ribbonHeight - 5;
             
             for (int i = 0; i < barsCount; i++) {

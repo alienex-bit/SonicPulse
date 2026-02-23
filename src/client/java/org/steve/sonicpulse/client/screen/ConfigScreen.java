@@ -20,7 +20,6 @@ import java.io.File;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URL;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -71,7 +70,7 @@ public class ConfigScreen extends Screen {
     private static final String[] TAB_TOOLTIPS = {
         "Stream audio from web links (YouTube, SoundCloud, etc.)",
         "Customize HUD colors, skins, and reactive effects",
-        "Adjust HUD scale and element sequence",
+        "Adjust HUD dimensions and element sequence",
         "View and replay recently streamed tracks",
         "Manage and play your saved favorite tracks",
         "Listen to live internet radio streams",
@@ -94,7 +93,7 @@ public class ConfigScreen extends Screen {
             final int idx = i;
             addDrawableChild(ButtonWidget.builder(Text.literal(TAB_LABELS[idx]), b -> { 
                 currentTab = idx; renamingEntry = null; if (idx == 6) { localScrollOffset = 0; scanLocalFiles(); } refreshWidgets(); 
-            }).dimensions(x + 5, y + 38 + (i * 22), SIDEBAR_WIDTH - 10, 20)
+            }).dimensions(x + 5, y + 40 + (i * 20), SIDEBAR_WIDTH - 10, 18)
               .tooltip(tt(TAB_TOOLTIPS[idx]))
               .build());
         }
@@ -160,61 +159,34 @@ public class ConfigScreen extends Screen {
                 
             case 1: // VISUAL
                 int colW = (contentW / 2) - 5;
-                addDrawableChild(ButtonWidget.builder(Text.literal("HUD: " + (config.hudVisible ? "§aVisible" : "§cHidden")), b -> { config.hudVisible = !config.hudVisible; SonicPulseConfig.save(); refreshWidgets(); })
-                    .dimensions(contentX, tabY + 5, colW, 20).tooltip(tt("Enable or disable the entire SonicPulse ribbon")).build());
-                
-                addDrawableChild(ButtonWidget.builder(Text.literal("Skin: " + config.skin.getName()), b -> { config.nextSkin(); refreshWidgets(); })
-                    .dimensions(contentX, tabY + 30, colW, 20).tooltip(tt("Change the background and border styling")).build());
-                
-                addDrawableChild(ButtonWidget.builder(Text.literal("Logo: " + (config.showLogo ? "§aOn" : "§cOff")), b -> { config.showLogo = !config.showLogo; SonicPulseConfig.save(); refreshWidgets(); })
-                    .dimensions(contentX, tabY + 55, colW, 20).tooltip(tt("Show or hide the SonicPulse text logo")).build());
-                
-                addDrawableChild(ButtonWidget.builder(Text.literal("Track: " + (config.showTrack ? "§aOn" : "§cOff")), b -> { config.showTrack = !config.showTrack; SonicPulseConfig.save(); refreshWidgets(); })
-                    .dimensions(contentX, tabY + 80, colW, 20).tooltip(tt("Show or hide the currently playing track name")).build());
-                
+                addDrawableChild(ButtonWidget.builder(Text.literal("HUD: " + (config.hudVisible ? "§aVisible" : "§cHidden")), b -> { config.hudVisible = !config.hudVisible; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, tabY + 5, colW, 20).tooltip(tt("Enable or disable the entire SonicPulse ribbon")).build());
+                addDrawableChild(ButtonWidget.builder(Text.literal("Skin: " + config.skin.getName()), b -> { config.nextSkin(); refreshWidgets(); }).dimensions(contentX, tabY + 30, colW, 20).tooltip(tt("Change the background and border styling")).build());
+                addDrawableChild(ButtonWidget.builder(Text.literal("Logo: " + (config.showLogo ? "§aOn" : "§cOff")), b -> { config.showLogo = !config.showLogo; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, tabY + 55, colW, 20).tooltip(tt("Show or hide the SonicPulse text logo")).build());
+                addDrawableChild(ButtonWidget.builder(Text.literal("Track: " + (config.showTrack ? "§aOn" : "§cOff")), b -> { config.showTrack = !config.showTrack; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, tabY + 80, colW, 20).tooltip(tt("Show or hide the currently playing track name")).build());
                 String fxText = config.bgEffect == SonicPulseConfig.BgEffect.OFF ? "§cOff" : config.bgEffect.name();
-                addDrawableChild(ButtonWidget.builder(Text.literal("FX: " + fxText), b -> { config.nextBgEffect(); refreshWidgets(); })
-                    .dimensions(contentX, tabY + 105, colW, 20).tooltip(tt("Select an audio-reactive background effect")).build());
+                addDrawableChild(ButtonWidget.builder(Text.literal("FX: " + fxText), b -> { config.nextBgEffect(); refreshWidgets(); }).dimensions(contentX, tabY + 105, colW, 20).tooltip(tt("Select an audio-reactive background effect")).build());
                 
-                addDrawableChild(ButtonWidget.builder(Text.literal("Style: " + config.visStyle.name().replace("_", " ")), b -> { config.nextVisStyle(); refreshWidgets(); })
-                    .dimensions(contentX + colW + 10, tabY + 5, colW, 20).tooltip(tt("Change how the audio equalizer bars are drawn")).build());
-                
-                addDrawableChild(ButtonWidget.builder(Text.literal("Bar: " + SonicPulseConfig.COLOR_NAMES[colorIndex]), b -> { colorIndex = (colorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setColor(SonicPulseConfig.PALETTE[colorIndex]); refreshWidgets(); })
-                    .dimensions(contentX + colW + 10, tabY + 30, colW, 20).tooltip(tt("Change the primary color of the equalizer bars")).build());
-                
-                addDrawableChild(ButtonWidget.builder(Text.literal("Title: " + SonicPulseConfig.COLOR_NAMES[titleColorIndex]), b -> { titleColorIndex = (titleColorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setTitleColor(SonicPulseConfig.PALETTE[titleColorIndex]); refreshWidgets(); })
-                    .dimensions(contentX + colW + 10, tabY + 55, colW, 20).tooltip(tt("Change the color of the SonicPulse text logo")).build());
-                
-                addDrawableChild(ButtonWidget.builder(Text.literal("Bars: " + (config.showBars ? "§aOn" : "§cOff")), b -> { config.showBars = !config.showBars; SonicPulseConfig.save(); refreshWidgets(); })
-                    .dimensions(contentX + colW + 10, tabY + 80, colW, 20).tooltip(tt("Show or hide the audio equalizer bars")).build());
-                
-                addDrawableChild(ButtonWidget.builder(Text.literal("Tooltips: " + (config.showTooltips ? "§aOn" : "§cOff")), b -> { config.showTooltips = !config.showTooltips; SonicPulseConfig.save(); refreshWidgets(); })
-                    .dimensions(contentX + colW + 10, tabY + 105, colW, 20).tooltip(tt("Enable or disable these hover descriptions globally")).build());
+                addDrawableChild(ButtonWidget.builder(Text.literal("Style: " + config.visStyle.name().replace("_", " ")), b -> { config.nextVisStyle(); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 5, colW, 20).tooltip(tt("Change how the audio equalizer bars are drawn")).build());
+                addDrawableChild(ButtonWidget.builder(Text.literal("Bar: " + SonicPulseConfig.COLOR_NAMES[colorIndex]), b -> { colorIndex = (colorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setColor(SonicPulseConfig.PALETTE[colorIndex]); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 30, colW, 20).tooltip(tt("Change the primary color of the equalizer bars")).build());
+                addDrawableChild(ButtonWidget.builder(Text.literal("Title: " + SonicPulseConfig.COLOR_NAMES[titleColorIndex]), b -> { titleColorIndex = (titleColorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setTitleColor(SonicPulseConfig.PALETTE[titleColorIndex]); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 55, colW, 20).tooltip(tt("Change the color of the SonicPulse text logo")).build());
+                addDrawableChild(ButtonWidget.builder(Text.literal("Bars: " + (config.showBars ? "§aOn" : "§cOff")), b -> { config.showBars = !config.showBars; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 80, colW, 20).tooltip(tt("Show or hide the audio equalizer bars")).build());
+                addDrawableChild(ButtonWidget.builder(Text.literal("Tooltips: " + (config.showTooltips ? "§aOn" : "§cOff")), b -> { config.showTooltips = !config.showTooltips; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 105, colW, 20).tooltip(tt("Enable or disable these hover descriptions globally")).build());
                 
                 if (config.bgEffect != SonicPulseConfig.BgEffect.OFF) {
                     int subY = tabY + 145;
                     if (config.bgEffect == SonicPulseConfig.BgEffect.PULSE) {
-                        addDrawableChild(ButtonWidget.builder(Text.literal("Int: " + config.pulseIntensity.name()), b -> { config.nextPulseIntensity(); refreshWidgets(); })
-                            .dimensions(contentX, subY, colW, 20).tooltip(tt("Adjust the maximum brightness of the flash")).build());
-                        addDrawableChild(ButtonWidget.builder(Text.literal("Decay: " + config.pulseDecay.name()), b -> { config.nextPulseDecay(); refreshWidgets(); })
-                            .dimensions(contentX + colW + 10, subY, colW, 20).tooltip(tt("Adjust how quickly the flash fades out")).build());
+                        addDrawableChild(ButtonWidget.builder(Text.literal("Int: " + config.pulseIntensity.name()), b -> { config.nextPulseIntensity(); refreshWidgets(); }).dimensions(contentX, subY, colW, 20).tooltip(tt("Adjust the maximum brightness of the flash")).build());
+                        addDrawableChild(ButtonWidget.builder(Text.literal("Decay: " + config.pulseDecay.name()), b -> { config.nextPulseDecay(); refreshWidgets(); }).dimensions(contentX + colW + 10, subY, colW, 20).tooltip(tt("Adjust how quickly the flash fades out")).build());
                     } else if (config.bgEffect == SonicPulseConfig.BgEffect.AURA) {
-                        addDrawableChild(ButtonWidget.builder(Text.literal("Spd: " + config.auraSpeed.name()), b -> { config.nextAuraSpeed(); refreshWidgets(); })
-                            .dimensions(contentX, subY, colW, 20).tooltip(tt("Adjust how fast the gradient colors drift")).build());
-                        addDrawableChild(ButtonWidget.builder(Text.literal("Hue: " + config.auraPalette.name()), b -> { config.nextAuraPalette(); refreshWidgets(); })
-                            .dimensions(contentX + colW + 10, subY, colW, 20).tooltip(tt("Toggle between full spectrum or Cyberpunk colors")).build());
+                        addDrawableChild(ButtonWidget.builder(Text.literal("Spd: " + config.auraSpeed.name()), b -> { config.nextAuraSpeed(); refreshWidgets(); }).dimensions(contentX, subY, colW, 20).tooltip(tt("Adjust how fast the gradient colors drift")).build());
+                        addDrawableChild(ButtonWidget.builder(Text.literal("Hue: " + config.auraPalette.name()), b -> { config.nextAuraPalette(); refreshWidgets(); }).dimensions(contentX + colW + 10, subY, colW, 20).tooltip(tt("Toggle between full spectrum or Cyberpunk colors")).build());
                     } else if (config.bgEffect == SonicPulseConfig.BgEffect.VHS) {
-                        addDrawableChild(ButtonWidget.builder(Text.literal("Lvl: " + config.vhsGlitch.name()), b -> { config.nextVhsGlitch(); refreshWidgets(); })
-                            .dimensions(contentX, subY, colW, 20).tooltip(tt("Adjust the intensity of the beat-reactive pixel split")).build());
-                        
+                        addDrawableChild(ButtonWidget.builder(Text.literal("Lvl: " + config.vhsGlitch.name()), b -> { config.nextVhsGlitch(); refreshWidgets(); }).dimensions(contentX, subY, colW, 20).tooltip(tt("Adjust the intensity of the beat-reactive pixel split")).build());
                         String scanText = config.vhsScanlines == SonicPulseConfig.VhsScanlines.OFF ? "§cOff" : config.vhsScanlines.name();
-                        addDrawableChild(ButtonWidget.builder(Text.literal("CRT: " + scanText), b -> { config.nextVhsScanlines(); refreshWidgets(); })
-                            .dimensions(contentX + colW + 10, subY, colW, 20).tooltip(tt("Adjust the darkness of the static CRT lines")).build());
+                        addDrawableChild(ButtonWidget.builder(Text.literal("CRT: " + scanText), b -> { config.nextVhsScanlines(); refreshWidgets(); }).dimensions(contentX + colW + 10, subY, colW, 20).tooltip(tt("Adjust the darkness of the static CRT lines")).build());
                     } else if (config.bgEffect == SonicPulseConfig.BgEffect.HEATMAP) {
-                        addDrawableChild(ButtonWidget.builder(Text.literal("Map: " + config.heatmapScale.name()), b -> { config.nextHeatmapScale(); refreshWidgets(); })
-                            .dimensions(contentX, subY, colW, 20).tooltip(tt("Change the thermal color gradient")).build());
-                        addDrawableChild(ButtonWidget.builder(Text.literal("Rad: " + config.heatmapSpread.name()), b -> { config.nextHeatmapSpread(); refreshWidgets(); })
-                            .dimensions(contentX + colW + 10, subY, colW, 20).tooltip(tt("Constrain the heat to the center or let it stretch")).build());
+                        addDrawableChild(ButtonWidget.builder(Text.literal("Map: " + config.heatmapScale.name()), b -> { config.nextHeatmapScale(); refreshWidgets(); }).dimensions(contentX, subY, colW, 20).tooltip(tt("Change the thermal color gradient")).build());
+                        addDrawableChild(ButtonWidget.builder(Text.literal("Rad: " + config.heatmapSpread.name()), b -> { config.nextHeatmapSpread(); refreshWidgets(); }).dimensions(contentX + colW + 10, subY, colW, 20).tooltip(tt("Constrain the heat to the center or let it stretch")).build());
                     }
                 }
                 break;
@@ -223,12 +195,19 @@ public class ConfigScreen extends Screen {
                 addDrawableChild(ButtonWidget.builder(Text.literal("Element Sequence: " + config.ribbonLayout.getDisplayName()), b -> { config.nextRibbonLayout(); refreshWidgets(); })
                     .dimensions(contentX, tabY + 5, contentW, 20).tooltip(tt("Change the left-to-right order of the logo, track name, and equalizer bars")).build());
                 
-                SliderWidget slider = new SliderWidget(contentX, tabY + 30, contentW, 20, Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%"), (config.hudScale - 0.25) / 0.75) { 
+                SliderWidget scaleSlider = new SliderWidget(contentX, tabY + 30, contentW, 20, Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%"), (config.hudScale - 0.25) / 0.75) { 
                     @Override protected void updateMessage() { setMessage(Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%")); } 
                     @Override protected void applyValue() { config.hudScale = (float)(0.25 + (value * 0.75)); SonicPulseConfig.save(); } 
                 };
-                slider.setTooltip(tt("Adjust the overall size of the HUD"));
-                addDrawableChild(slider);
+                scaleSlider.setTooltip(tt("Adjust the overall size of the HUD"));
+                addDrawableChild(scaleSlider);
+
+                SliderWidget widthSlider = new SliderWidget(contentX, tabY + 55, contentW, 20, Text.literal("HUD Width: " + (int)(config.hudWidth * 100) + "%"), (config.hudWidth - 0.25) / 0.75) { 
+                    @Override protected void updateMessage() { setMessage(Text.literal("HUD Width: " + (int)(config.hudWidth * 100) + "%")); } 
+                    @Override protected void applyValue() { config.hudWidth = (float)(0.25 + (value * 0.75)); SonicPulseConfig.save(); } 
+                };
+                widthSlider.setTooltip(tt("Shrink and center the HUD horizontally to fit between other mods"));
+                addDrawableChild(widthSlider);
                 break;
                 
             case 3: // HISTORY
@@ -432,7 +411,7 @@ public class ConfigScreen extends Screen {
         String trkTxt = (config.currentTitle != null && isEnginePlaying) ? " » §f" + textRenderer.trimToWidth(config.currentTitle, 115) : "";
         context.drawText(textRenderer, Text.literal(stateTxt + " §8(" + config.activeMode.name() + ")" + trkTxt), x + 5, y + 6, 0xFFFFFFFF, false);
         
-        context.drawBorder(x + 4, y + 37 + (currentTab * 22), SIDEBAR_WIDTH - 8, 22, ACTIVE_BORDER);
+        context.drawBorder(x + 4, y + 39 + (currentTab * 20), SIDEBAR_WIDTH - 8, 20, ACTIVE_BORDER);
 
         int playBtnW = 65;
         int playLocalX = x + BOX_WIDTH - playBtnW - 8;
@@ -514,21 +493,20 @@ public class ConfigScreen extends Screen {
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("§l§nSONICPULSE"), centerX, tabY + 5, 0xFFFF00FF);
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("Professional Media Control Unit"), centerX, tabY + 18, 0xAAAAAA);
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("Created by: §bSteve Watkins"), centerX, tabY + 40, 0xFFFFFFFF);
+            context.drawTexture(RenderLayer::getGuiTextured, QR_CODE, centerX - 25, tabY + 55, 0, 0, 50, 50, 50, 50);
             
-            int qrX = centerX - 25;
-            int qrY = tabY + 55;
-            context.drawTexture(RenderLayer::getGuiTextured, QR_CODE, qrX, qrY, 0, 0, 50, 50, 50, 50);
-            
-            if (config.showTooltips && mx >= qrX && mx <= qrX + 50 && my >= qrY && my <= qrY + 50) {
+            if (config.showTooltips && mx >= centerX - 25 && mx <= centerX + 25 && my >= tabY + 55 && my <= tabY + 105) {
                 context.drawTooltip(textRenderer, Text.literal("Scan this code to donate and buy Steve a coffee!"), mx, my);
             }
 
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("§7Enjoying the vibes? Buy Steve a coffee!"), centerX, tabY + 110, 0xAAFFFFFF);
-            
-            boolean isNew = !latestVersion.equals(CURRENT_VERSION);
-            String verText = isNew ? "§6Update Avail: V" + latestVersion : "§fVersion " + CURRENT_VERSION + " | Up to Date";
-            context.drawCenteredTextWithShadow(textRenderer, Text.literal(verText), centerX, y + BOX_HEIGHT - 15, 0xFFFFFFFF); 
         }
+
+        boolean isNew = !latestVersion.equals(CURRENT_VERSION);
+        String verText = isNew ? "§6Update Avail: V" + latestVersion : "§8V" + CURRENT_VERSION;
+        int verW = textRenderer.getWidth(verText);
+        context.drawText(textRenderer, Text.literal(verText), x + (SIDEBAR_WIDTH/2) - (verW/2), y + BOX_HEIGHT - 12, 0xFFFFFFFF, false);
+
         hudRenderer.render(context, true, 0, 0);
     }
 }
