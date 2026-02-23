@@ -32,7 +32,7 @@ public class SonicPulseConfig {
         public String getName() { return name; }
     }
 
-    public enum SessionMode { NONE, FAVOURITES, HISTORY, LOCAL, RADIO }
+    public enum SessionMode { NONE, FAVOURITES, HISTORY, LOCAL, RADIO, REMOTE }
     public enum VisualizerStyle { SOLID, FLOATING_PEAKS }
     
     public enum BgEffect { OFF, PULSE, AURA, VHS, HEATMAP }
