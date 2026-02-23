@@ -301,13 +301,11 @@ public class ConfigScreen extends Screen {
                 addTinted(ButtonWidget.builder(Text.literal("LOAD"), b -> { config.lastRadioUrl = radioUrlField.getText(); SonicPulseConfig.save(); loadRadioM3U(radioUrlField.getText()); })
                     .dimensions(contentX + contentW - 45, tabY + 20, 45, 20).tooltip(tt("Fetch the radio streams from the URL above")).build(), tc);
                 
-                // FIXED BUTTON (Disabled) below BBC
                 ButtonWidget fixedBtn = ButtonWidget.builder(Text.literal("Fixed"), b -> {})
                     .dimensions(contentX, tabY + 45, (contentW/5) - 2, 16).tooltip(tt("BBC presets are fixed and cannot be overwritten")).build();
                 fixedBtn.active = false;
                 addTinted(fixedBtn, tc);
 
-                // 4 SAVE BUTTONS correctly shifted over by 1 column to map below presets
                 for (int i = 0; i < 4; i++) {
                     final int sIdx = i;
                     addTinted(ButtonWidget.builder(Text.literal("Save " + (sIdx + 1)), b -> {
@@ -343,6 +341,7 @@ public class ConfigScreen extends Screen {
                 break;
                 
             case 7: // ENGINE
+                int colW7 = (contentW / 2) - 5;
                 addTinted(ButtonWidget.builder(Text.literal("Stream Buffering: " + (config.enableStreamBuffering ? "§aEnabled" : "§cDisabled")), b -> { 
                     config.enableStreamBuffering = !config.enableStreamBuffering; SonicPulseConfig.save(); refreshWidgets(); 
                 }).dimensions(contentX, tabY + 5, contentW, 20).tooltip(tt("Enable a reservoir to prevent stuttering on slow internet")).build(), tc);
@@ -357,6 +356,20 @@ public class ConfigScreen extends Screen {
                 addTinted(ButtonWidget.builder(Text.literal("Show Buffer Bar: " + (config.showBufferingBar ? "§aOn" : "§cOff")), b -> { 
                     config.showBufferingBar = !config.showBufferingBar; SonicPulseConfig.save(); refreshWidgets(); 
                 }).dimensions(contentX, tabY + 55, contentW, 20).tooltip(tt("Display the loading progress line at the bottom of the HUD")).build(), tc);
+
+                SliderWidget bassSlider = new SliderWidget(contentX, tabY + 100, colW7, 20, Text.literal("Bass: " + (int)(config.eqBass * 100) + "%"), (config.eqBass + 1.0) / 2.0) {
+                    @Override protected void updateMessage() { setMessage(Text.literal("Bass: " + (int)(config.eqBass * 100) + "%")); }
+                    @Override protected void applyValue() { config.eqBass = (float)(value * 2.0 - 1.0); SonicPulseConfig.save(); SonicPulseClient.getEngine().updateEqualizer(); }
+                };
+                bassSlider.setTooltip(tt("Boost or cut low frequency bass (-100% to +100%)"));
+                addTinted(bassSlider, tc);
+
+                SliderWidget trebleSlider = new SliderWidget(contentX + colW7 + 10, tabY + 100, colW7, 20, Text.literal("Treble: " + (int)(config.eqTreble * 100) + "%"), (config.eqTreble + 1.0) / 2.0) {
+                    @Override protected void updateMessage() { setMessage(Text.literal("Treble: " + (int)(config.eqTreble * 100) + "%")); }
+                    @Override protected void applyValue() { config.eqTreble = (float)(value * 2.0 - 1.0); SonicPulseConfig.save(); SonicPulseClient.getEngine().updateEqualizer(); }
+                };
+                trebleSlider.setTooltip(tt("Boost or cut high frequency treble (-100% to +100%)"));
+                addTinted(trebleSlider, tc);
                 break;
                 
             case 8: // ABOUT
@@ -461,6 +474,10 @@ public class ConfigScreen extends Screen {
         else { context.fill(deckX + 42, y + 4, deckX + 62, y + 16, 0x55FF0000); }
         
         if (currentTab == 1 && config.bgEffect != SonicPulseConfig.BgEffect.OFF) { int divY = tabY + 132; context.fill(contentX, divY, contentX + contentW, divY + 1, 0x44FFFFFF); context.drawText(textRenderer, Text.literal("§e" + config.bgEffect.name() + " TWEAKS"), contentX, divY + 4, 0xFFFFFFFF, false); }
+        
+        // DSP Equalizer Label
+        if (currentTab == 7) { int divY = tabY + 84; context.fill(contentX, divY, contentX + contentW, divY + 1, 0x44FFFFFF); context.drawText(textRenderer, Text.literal("§eDSP EQUALIZER"), contentX, divY + 4, 0xFFFFFFFF, false); }
+
         AudioTrack playingTrack = SonicPulseClient.getEngine().getPlayer().getPlayingTrack(); String activeUri = playingTrack != null ? playingTrack.getInfo().uri : null;
         if (activeUri != null) {
             int highlightColor = 0xFF55FF55; if (currentTab == 3) { List<SonicPulseConfig.HistoryEntry> hSorted = config.history.stream().filter(e -> !e.favorite).sorted(Comparator.comparingLong((SonicPulseConfig.HistoryEntry e) -> e.lastPlayed).reversed()).limit(20).collect(Collectors.toList()); for (int i = historyScrollOffset; i < Math.min(hSorted.size(), historyScrollOffset + 7); i++) { if (hSorted.get(i).url.equals(activeUri)) { int rY = tabY + 20 + ((i - historyScrollOffset) * 19); context.drawBorder(contentX - 1, rY - 1, contentW - 38, 21, highlightColor); } } } else if (currentTab == 4) { List<SonicPulseConfig.HistoryEntry> fvs = config.getFavoriteHistory(); for (int i = favScrollOffset; i < Math.min(fvs.size(), favScrollOffset + 8); i++) { if (fvs.get(i).url.equals(activeUri)) { int rY = tabY + ((i - favScrollOffset) * 19); context.drawBorder(contentX + 19, rY - 1, contentW - 93, 21, highlightColor); } } } else if (currentTab == 6) { for (int i = localScrollOffset; i < Math.min(localFiles.size(), localScrollOffset + 7); i++) { File fl = localFiles.get(i); if (activeUri.equals(fl.getAbsolutePath()) || activeUri.equals(fl.toURI().toString()) || activeUri.replace("\\", "/").endsWith(fl.getName())) { int rY = tabY + 26 + ((i - localScrollOffset) * 19); context.drawBorder(contentX - 1, rY - 1, contentW - 13, 21, highlightColor); } } }

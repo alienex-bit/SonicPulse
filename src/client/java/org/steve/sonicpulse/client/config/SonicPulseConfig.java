@@ -67,7 +67,6 @@ public class SonicPulseConfig {
     public String currentTitle = null, lastRadioUrl = "", localMusicPath = "";
     public List<HistoryEntry> history = new ArrayList<>();
     
-    // NEW: Radio Memory Banks
     public String[] radioPresetNames = {"Preset 1", "Preset 2", "Preset 3", "Preset 4"};
     public String[] radioPresetUrls = {"", "", "", ""};
     
@@ -76,6 +75,10 @@ public class SonicPulseConfig {
     public boolean enableStreamBuffering = true;
     public int streamBufferSeconds = 5; 
     public boolean showBufferingBar = true;
+    
+    // Phase 2: DSP Equalizer
+    public float eqBass = 0.0f;   // Range: -1.0 to 1.0
+    public float eqTreble = 0.0f; // Range: -1.0 to 1.0
 
     public PulseIntensity pulseIntensity = PulseIntensity.NORMAL;
     public PulseDecay pulseDecay = PulseDecay.FLUID;
