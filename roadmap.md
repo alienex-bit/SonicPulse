@@ -20,10 +20,10 @@ SonicPulse aims to be the most performant and aesthetically versatile media HUD 
 *Enhancing the auditory experience and user control interfaces.*
 
 - [x] **Audio Engine Config Tab**: Dedicated sub-menu for real-time engine manipulation.
-- [ ] **DSP Equalizer**: Frequency-specific gain sliders for Bass and Treble.
-- [ ] **Stereo Widening**: Immersive soundstage modification logic.
+- [x] **DSP Equalizer**: Frequency-specific gain sliders for Bass and Treble.
+- [x] **Stereo Widening**: Immersive soundstage modification logic.
 - [ ] **Environmental Reverb**: Virtual room presets including Hall, Cave, and Large Room.
-
+- [x] **Underwater Muffling**: When underwater option to muffle audio playback.
 ---
 
 ## 🌐 Phase 3: Social & Integration
