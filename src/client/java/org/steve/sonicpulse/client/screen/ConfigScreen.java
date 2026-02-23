@@ -43,6 +43,31 @@ public class ConfigScreen extends Screen {
 
     private static final String[] TAB_LABELS = {"📡 REMOTE", "🎨 VISUAL", "📐 LAYOUT", "🕒 HIST", "★ FAVS", "📻 RADIO", "♫ LOCAL", "⚙ ENGINE", "i ABOUT"};
     
+    private static final int[] PASTEL = {
+        0xFF82B1FF, // 0 REMOTE: Pastel Sky Blue
+        0xFFFF8A80, // 1 VISUAL: Pastel Rose/Pink
+        0xFFB9F6CA, // 2 LAYOUT: Pastel Mint Green
+        0xFFFFD180, // 3 HIST: Pastel Peach/Orange
+        0xFFFFFF8D, // 4 FAVS: Pastel Lemon/Gold
+        0xFFB388FF, // 5 RADIO: Pastel Lavender/Purple
+        0xFF84FFFF, // 6 LOCAL: Pastel Cyan
+        0xFFCFD8DC, // 7 ENGINE: Pastel Slate/Grey
+        0xFFF5F5F5  // 8 ABOUT: Pastel Pearl/White
+    };
+    
+    private static class TintRecord {
+        net.minecraft.client.gui.widget.ClickableWidget widget;
+        int color;
+        TintRecord(net.minecraft.client.gui.widget.ClickableWidget w, int c) { widget = w; color = c; }
+    }
+    private final List<TintRecord> widgetTints = new ArrayList<>();
+
+    private <T extends net.minecraft.client.gui.widget.ClickableWidget> T addTinted(T widget, int color) {
+        addDrawableChild(widget);
+        widgetTints.add(new TintRecord(widget, color));
+        return widget;
+    }
+
     private static final String[] TAB_TOOLTIPS = {
         "Stream audio from web links (YouTube, SoundCloud, etc.)",
         "Customize HUD colors, skins, and reactive effects",
@@ -83,22 +108,21 @@ public class ConfigScreen extends Screen {
     
     private void refreshWidgets() {
         this.clearChildren();
+        this.widgetTints.clear();
+        
         int x = (width - BOX_WIDTH) / 2, y = (height - BOX_HEIGHT) / 2;
         int contentX = x + SIDEBAR_WIDTH + 10, contentW = BOX_WIDTH - SIDEBAR_WIDTH - 20;
+        int tc = PASTEL[currentTab]; 
 
         for (int i = 0; i < TAB_LABELS.length; i++) {
             final int idx = i;
-            addDrawableChild(ButtonWidget.builder(Text.literal(TAB_LABELS[idx]), b -> { 
+            addTinted(ButtonWidget.builder(Text.literal(TAB_LABELS[idx]), b -> { 
                 currentTab = idx; renamingEntry = null; if (idx == 6) { localScrollOffset = 0; scanLocalFiles(); } refreshWidgets(); 
-            }).dimensions(x + 5, y + 40 + (i * 18), SIDEBAR_WIDTH - 10, 16)
-              .tooltip(tt(TAB_TOOLTIPS[idx]))
-              .build());
+            }).dimensions(x + 5, y + 40 + (i * 18), SIDEBAR_WIDTH - 10, 16).tooltip(tt(TAB_TOOLTIPS[idx])).build(), PASTEL[idx]);
         }
 
-        int playBtnW = 65;
-        int playLocalX = x + BOX_WIDTH - playBtnW - 8;
-        int playFavsX = playLocalX - playBtnW - 5;
-
+        // TOP DECK REVERTED TO STANDARD DRAWABLE (No Pastel Tint)
+        int playBtnW = 65, playLocalX = x + BOX_WIDTH - playBtnW - 8, playFavsX = playLocalX - playBtnW - 5;
         addDrawableChild(ButtonWidget.builder(Text.literal(""), b -> { 
             config.activeMode = SonicPulseConfig.SessionMode.FAVOURITES; SonicPulseConfig.save(); 
             if(!config.getFavoriteHistory().isEmpty()) { SonicPulseConfig.HistoryEntry e = config.getFavoriteHistory().get(0); SonicPulseClient.getEngine().playTrack(e.url, e.label, e.type); }
@@ -127,15 +151,15 @@ public class ConfigScreen extends Screen {
                 urlField = new TextFieldWidget(textRenderer, contentX, tabY + 15, contentW - 85, 20, Text.literal("URL")); 
                 urlField.setMaxLength(1024); 
                 urlField.setTooltip(tt("Enter or paste a media URL here (YouTube, SoundCloud, etc.)"));
-                addDrawableChild(urlField);
+                addTinted(urlField, tc);
                 
-                addDrawableChild(ButtonWidget.builder(Text.literal("LOAD & PLAY"), b -> { 
+                addTinted(ButtonWidget.builder(Text.literal("LOAD & PLAY"), b -> { 
                     if(!urlField.getText().isEmpty()) { 
                         config.activeMode = SonicPulseConfig.SessionMode.REMOTE;
                         SonicPulseClient.getEngine().playTrack(urlField.getText(), urlField.getText(), "Remote"); 
                         refreshWidgets(); 
                     } 
-                }).dimensions(contentX + contentW - 80, tabY + 15, 80, 20).tooltip(tt("Fetch and immediately play the entered URL")).build());
+                }).dimensions(contentX + contentW - 80, tabY + 15, 80, 20).tooltip(tt("Fetch and immediately play the entered URL")).build(), tc);
                 
                 List<SonicPulseConfig.HistoryEntry> webH = config.history.stream()
                     .filter(he -> he.url != null && !he.url.toLowerCase().startsWith("file") && !he.url.matches("^[a-zA-Z]:\\\\.*"))
@@ -144,83 +168,83 @@ public class ConfigScreen extends Screen {
                     
                 for (int i = 0; i < webH.size(); i++) {
                     SonicPulseConfig.HistoryEntry e = webH.get(i); int bx = contentX + (i % 2) * (contentW / 2 + 2);
-                    addDrawableChild(ButtonWidget.builder(Text.literal("▶ " + textRenderer.trimToWidth(e.label, (contentW / 2) - 25)), b -> { 
+                    addTinted(ButtonWidget.builder(Text.literal("▶ " + textRenderer.trimToWidth(e.label, (contentW / 2) - 25)), b -> { 
                         config.activeMode = SonicPulseConfig.SessionMode.REMOTE;
                         SonicPulseClient.getEngine().playTrack(e.url, e.label, "Remote"); 
                         refreshWidgets(); 
-                    }).dimensions(bx, tabY + 122 + (i / 2) * 22, (contentW / 2) - 2, 20).tooltip(tt("Click to replay this recent stream")).build());
+                    }).dimensions(bx, tabY + 122 + (i / 2) * 22, (contentW / 2) - 2, 20).tooltip(tt("Click to replay this recent stream")).build(), tc);
                 }
                 break;
                 
             case 1: // VISUAL
                 int colW = (contentW / 2) - 5;
-                addDrawableChild(ButtonWidget.builder(Text.literal("HUD: " + (config.hudVisible ? "§aVisible" : "§cHidden")), b -> { config.hudVisible = !config.hudVisible; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, tabY + 5, colW, 20).tooltip(tt("Enable or disable the entire SonicPulse ribbon")).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("Skin: " + config.skin.getName()), b -> { config.nextSkin(); refreshWidgets(); }).dimensions(contentX, tabY + 30, colW, 20).tooltip(tt("Change the background and border styling")).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("Logo: " + (config.showLogo ? "§aOn" : "§cOff")), b -> { config.showLogo = !config.showLogo; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, tabY + 55, colW, 20).tooltip(tt("Show or hide the SonicPulse text logo")).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("Track: " + (config.showTrack ? "§aOn" : "§cOff")), b -> { config.showTrack = !config.showTrack; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, tabY + 80, colW, 20).tooltip(tt("Show or hide the currently playing track name")).build());
+                addTinted(ButtonWidget.builder(Text.literal("HUD: " + (config.hudVisible ? "§aVisible" : "§cHidden")), b -> { config.hudVisible = !config.hudVisible; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, tabY + 5, colW, 20).tooltip(tt("Enable or disable the entire SonicPulse ribbon")).build(), tc);
+                addTinted(ButtonWidget.builder(Text.literal("Skin: " + config.skin.getName()), b -> { config.nextSkin(); refreshWidgets(); }).dimensions(contentX, tabY + 30, colW, 20).tooltip(tt("Change the background and border styling")).build(), tc);
+                addTinted(ButtonWidget.builder(Text.literal("Logo: " + (config.showLogo ? "§aOn" : "§cOff")), b -> { config.showLogo = !config.showLogo; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, tabY + 55, colW, 20).tooltip(tt("Show or hide the SonicPulse text logo")).build(), tc);
+                addTinted(ButtonWidget.builder(Text.literal("Track: " + (config.showTrack ? "§aOn" : "§cOff")), b -> { config.showTrack = !config.showTrack; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX, tabY + 80, colW, 20).tooltip(tt("Show or hide the currently playing track name")).build(), tc);
                 String fxText = config.bgEffect == SonicPulseConfig.BgEffect.OFF ? "§cOff" : config.bgEffect.name();
-                addDrawableChild(ButtonWidget.builder(Text.literal("FX: " + fxText), b -> { config.nextBgEffect(); refreshWidgets(); }).dimensions(contentX, tabY + 105, colW, 20).tooltip(tt("Select an audio-reactive background effect")).build());
+                addTinted(ButtonWidget.builder(Text.literal("FX: " + fxText), b -> { config.nextBgEffect(); refreshWidgets(); }).dimensions(contentX, tabY + 105, colW, 20).tooltip(tt("Select an audio-reactive background effect")).build(), tc);
                 
-                addDrawableChild(ButtonWidget.builder(Text.literal("Style: " + config.visStyle.name().replace("_", " ")), b -> { config.nextVisStyle(); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 5, colW, 20).tooltip(tt("Change how the audio equalizer bars are drawn")).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("Bar: " + SonicPulseConfig.COLOR_NAMES[colorIndex]), b -> { colorIndex = (colorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setColor(SonicPulseConfig.PALETTE[colorIndex]); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 30, colW, 20).tooltip(tt("Change the primary color of the equalizer bars")).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("Title: " + SonicPulseConfig.COLOR_NAMES[titleColorIndex]), b -> { titleColorIndex = (titleColorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setTitleColor(SonicPulseConfig.PALETTE[titleColorIndex]); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 55, colW, 20).tooltip(tt("Change the color of the SonicPulse text logo")).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("Bars: " + (config.showBars ? "§aOn" : "§cOff")), b -> { config.showBars = !config.showBars; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 80, colW, 20).tooltip(tt("Show or hide the audio equalizer bars")).build());
-                addDrawableChild(ButtonWidget.builder(Text.literal("Tooltips: " + (config.showTooltips ? "§aOn" : "§cOff")), b -> { config.showTooltips = !config.showTooltips; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 105, colW, 20).tooltip(tt("Enable or disable these hover descriptions globally")).build());
+                addTinted(ButtonWidget.builder(Text.literal("Style: " + config.visStyle.name().replace("_", " ")), b -> { config.nextVisStyle(); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 5, colW, 20).tooltip(tt("Change how the audio equalizer bars are drawn")).build(), tc);
+                addTinted(ButtonWidget.builder(Text.literal("Bar: " + SonicPulseConfig.COLOR_NAMES[colorIndex]), b -> { colorIndex = (colorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setColor(SonicPulseConfig.PALETTE[colorIndex]); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 30, colW, 20).tooltip(tt("Change the primary color of the equalizer bars")).build(), tc);
+                addTinted(ButtonWidget.builder(Text.literal("Title: " + SonicPulseConfig.COLOR_NAMES[titleColorIndex]), b -> { titleColorIndex = (titleColorIndex + 1) % SonicPulseConfig.PALETTE.length; config.setTitleColor(SonicPulseConfig.PALETTE[titleColorIndex]); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 55, colW, 20).tooltip(tt("Change the color of the SonicPulse text logo")).build(), tc);
+                addTinted(ButtonWidget.builder(Text.literal("Bars: " + (config.showBars ? "§aOn" : "§cOff")), b -> { config.showBars = !config.showBars; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 80, colW, 20).tooltip(tt("Show or hide the audio equalizer bars")).build(), tc);
+                addTinted(ButtonWidget.builder(Text.literal("Tooltips: " + (config.showTooltips ? "§aOn" : "§cOff")), b -> { config.showTooltips = !config.showTooltips; SonicPulseConfig.save(); refreshWidgets(); }).dimensions(contentX + colW + 10, tabY + 105, colW, 20).tooltip(tt("Enable or disable these hover descriptions globally")).build(), tc);
                 
                 if (config.bgEffect != SonicPulseConfig.BgEffect.OFF) {
                     int subY = tabY + 145;
                     if (config.bgEffect == SonicPulseConfig.BgEffect.PULSE) {
-                        addDrawableChild(ButtonWidget.builder(Text.literal("Int: " + config.pulseIntensity.name()), b -> { config.nextPulseIntensity(); refreshWidgets(); }).dimensions(contentX, subY, colW, 20).tooltip(tt("Adjust the maximum brightness of the flash")).build());
-                        addDrawableChild(ButtonWidget.builder(Text.literal("Decay: " + config.pulseDecay.name()), b -> { config.nextPulseDecay(); refreshWidgets(); }).dimensions(contentX + colW + 10, subY, colW, 20).tooltip(tt("Adjust how quickly the flash fades out")).build());
+                        addTinted(ButtonWidget.builder(Text.literal("Int: " + config.pulseIntensity.name()), b -> { config.nextPulseIntensity(); refreshWidgets(); }).dimensions(contentX, subY, colW, 20).tooltip(tt("Adjust the maximum brightness of the flash")).build(), tc);
+                        addTinted(ButtonWidget.builder(Text.literal("Decay: " + config.pulseDecay.name()), b -> { config.nextPulseDecay(); refreshWidgets(); }).dimensions(contentX + colW + 10, subY, colW, 20).tooltip(tt("Adjust how quickly the flash fades out")).build(), tc);
                     } else if (config.bgEffect == SonicPulseConfig.BgEffect.AURA) {
-                        addDrawableChild(ButtonWidget.builder(Text.literal("Spd: " + config.auraSpeed.name()), b -> { config.nextAuraSpeed(); refreshWidgets(); }).dimensions(contentX, subY, colW, 20).tooltip(tt("Adjust how fast the gradient colors drift")).build());
-                        addDrawableChild(ButtonWidget.builder(Text.literal("Hue: " + config.auraPalette.name()), b -> { config.nextAuraPalette(); refreshWidgets(); }).dimensions(contentX + colW + 10, subY, colW, 20).tooltip(tt("Toggle between full spectrum or Cyberpunk colors")).build());
+                        addTinted(ButtonWidget.builder(Text.literal("Spd: " + config.auraSpeed.name()), b -> { config.nextAuraSpeed(); refreshWidgets(); }).dimensions(contentX, subY, colW, 20).tooltip(tt("Adjust how fast the gradient colors drift")).build(), tc);
+                        addTinted(ButtonWidget.builder(Text.literal("Hue: " + config.auraPalette.name()), b -> { config.nextAuraPalette(); refreshWidgets(); }).dimensions(contentX + colW + 10, subY, colW, 20).tooltip(tt("Toggle between full spectrum or Cyberpunk colors")).build(), tc);
                     } else if (config.bgEffect == SonicPulseConfig.BgEffect.VHS) {
-                        addDrawableChild(ButtonWidget.builder(Text.literal("Lvl: " + config.vhsGlitch.name()), b -> { config.nextVhsGlitch(); refreshWidgets(); }).dimensions(contentX, subY, colW, 20).tooltip(tt("Adjust the intensity of the beat-reactive pixel split")).build());
+                        addTinted(ButtonWidget.builder(Text.literal("Lvl: " + config.vhsGlitch.name()), b -> { config.nextVhsGlitch(); refreshWidgets(); }).dimensions(contentX, subY, colW, 20).tooltip(tt("Adjust the intensity of the beat-reactive pixel split")).build(), tc);
                         String scanText = config.vhsScanlines == SonicPulseConfig.VhsScanlines.OFF ? "§cOff" : config.vhsScanlines.name();
-                        addDrawableChild(ButtonWidget.builder(Text.literal("CRT: " + scanText), b -> { config.nextVhsScanlines(); refreshWidgets(); }).dimensions(contentX + colW + 10, subY, colW, 20).tooltip(tt("Adjust the darkness of the static CRT lines")).build());
+                        addTinted(ButtonWidget.builder(Text.literal("CRT: " + scanText), b -> { config.nextVhsScanlines(); refreshWidgets(); }).dimensions(contentX + colW + 10, subY, colW, 20).tooltip(tt("Adjust the darkness of the static CRT lines")).build(), tc);
                     } else if (config.bgEffect == SonicPulseConfig.BgEffect.HEATMAP) {
-                        addDrawableChild(ButtonWidget.builder(Text.literal("Map: " + config.heatmapScale.name()), b -> { config.nextHeatmapScale(); refreshWidgets(); }).dimensions(contentX, subY, colW, 20).tooltip(tt("Change the thermal color gradient")).build());
-                        addDrawableChild(ButtonWidget.builder(Text.literal("Rad: " + config.heatmapSpread.name()), b -> { config.nextHeatmapSpread(); refreshWidgets(); }).dimensions(contentX + colW + 10, subY, colW, 20).tooltip(tt("Constrain the heat to the center or let it stretch")).build());
+                        addTinted(ButtonWidget.builder(Text.literal("Map: " + config.heatmapScale.name()), b -> { config.nextHeatmapScale(); refreshWidgets(); }).dimensions(contentX, subY, colW, 20).tooltip(tt("Change the thermal color gradient")).build(), tc);
+                        addTinted(ButtonWidget.builder(Text.literal("Rad: " + config.heatmapSpread.name()), b -> { config.nextHeatmapSpread(); refreshWidgets(); }).dimensions(contentX + colW + 10, subY, colW, 20).tooltip(tt("Constrain the heat to the center or let it stretch")).build(), tc);
                     }
                 }
                 break;
                 
             case 2: // LAYOUT
-                addDrawableChild(ButtonWidget.builder(Text.literal("Element Sequence: " + config.ribbonLayout.getDisplayName()), b -> { config.nextRibbonLayout(); refreshWidgets(); })
-                    .dimensions(contentX, tabY + 5, contentW, 20).tooltip(tt("Change the left-to-right order of the logo, track name, and equalizer bars")).build());
+                addTinted(ButtonWidget.builder(Text.literal("Element Sequence: " + config.ribbonLayout.getDisplayName()), b -> { config.nextRibbonLayout(); refreshWidgets(); })
+                    .dimensions(contentX, tabY + 5, contentW, 20).tooltip(tt("Change the left-to-right order of the logo, track name, and equalizer bars")).build(), tc);
                 
                 SliderWidget scaleSlider = new SliderWidget(contentX, tabY + 30, contentW, 20, Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%"), (config.hudScale - 0.25) / 0.75) { 
                     @Override protected void updateMessage() { setMessage(Text.literal("HUD Scale: " + (int)(config.hudScale * 100) + "%")); } 
                     @Override protected void applyValue() { config.hudScale = (float)(0.25 + (value * 0.75)); SonicPulseConfig.save(); } 
                 };
                 scaleSlider.setTooltip(tt("Adjust the overall size of the HUD"));
-                addDrawableChild(scaleSlider);
+                addTinted(scaleSlider, tc);
 
                 SliderWidget widthSlider = new SliderWidget(contentX, tabY + 55, contentW, 20, Text.literal("HUD Width: " + (int)(config.hudWidth * 100) + "%"), (config.hudWidth - 0.25) / 0.75) { 
                     @Override protected void updateMessage() { setMessage(Text.literal("HUD Width: " + (int)(config.hudWidth * 100) + "%")); } 
                     @Override protected void applyValue() { config.hudWidth = (float)(0.25 + (value * 0.75)); SonicPulseConfig.save(); } 
                 };
                 widthSlider.setTooltip(tt("Shrink and center the HUD horizontally to fit between other mods"));
-                addDrawableChild(widthSlider);
+                addTinted(widthSlider, tc);
                 break;
                 
             case 3: // HISTORY
                 List<SonicPulseConfig.HistoryEntry> hSorted = config.history.stream().filter(e -> !e.favorite).sorted(Comparator.comparingLong((SonicPulseConfig.HistoryEntry e) -> e.lastPlayed).reversed()).limit(20).collect(Collectors.toList());
-                addDrawableChild(ButtonWidget.builder(Text.literal("§cClear History"), b -> { config.history.removeIf(e -> !e.favorite); SonicPulseConfig.save(); refreshWidgets(); })
-                    .dimensions(contentX, tabY, contentW, 16).tooltip(tt("Permanently delete all non-favorited history entries")).build());
+                addTinted(ButtonWidget.builder(Text.literal("§cClear History"), b -> { config.history.removeIf(e -> !e.favorite); SonicPulseConfig.save(); refreshWidgets(); })
+                    .dimensions(contentX, tabY, contentW, 16).tooltip(tt("Permanently delete all non-favorited history entries")).build(), tc);
                 
                 for (int i = historyScrollOffset; i < Math.min(hSorted.size(), historyScrollOffset + 7); i++) {
                     final int hIdx = i; SonicPulseConfig.HistoryEntry e = hSorted.get(hIdx); int rY = tabY + 20 + ((hIdx - historyScrollOffset) * rowH);
-                    addDrawableChild(ButtonWidget.builder(Text.literal(textRenderer.trimToWidth(e.label, contentW - 55)), b -> { 
+                    addTinted(ButtonWidget.builder(Text.literal(textRenderer.trimToWidth(e.label, contentW - 55)), b -> { 
                         config.activeMode = SonicPulseConfig.SessionMode.HISTORY;
                         SonicPulseClient.getEngine().playTrack(e.url, e.label, e.type); 
                         refreshWidgets(); 
-                    }).dimensions(contentX, rY, contentW - 40, rowH).tooltip(tt("Click to replay this track")).build());
-                    addDrawableChild(ButtonWidget.builder(Text.literal("☆"), b -> { e.favorite = true; SonicPulseConfig.save(); refreshWidgets(); })
-                        .dimensions(contentX + contentW - 38, rY, 18, rowH).tooltip(tt("Save this track to your Favorites list")).build());
-                    addDrawableChild(ButtonWidget.builder(Text.literal("X"), b -> { config.history.remove(e); SonicPulseConfig.save(); refreshWidgets(); })
-                        .dimensions(contentX + contentW - 18, rY, 18, rowH).tooltip(tt("Remove this track from your history")).build());
+                    }).dimensions(contentX, rY, contentW - 40, rowH).tooltip(tt("Click to replay this track")).build(), tc);
+                    addTinted(ButtonWidget.builder(Text.literal("☆"), b -> { e.favorite = true; SonicPulseConfig.save(); refreshWidgets(); })
+                        .dimensions(contentX + contentW - 38, rY, 18, rowH).tooltip(tt("Save this track to your Favorites list")).build(), tc);
+                    addTinted(ButtonWidget.builder(Text.literal("X"), b -> { config.history.remove(e); SonicPulseConfig.save(); refreshWidgets(); })
+                        .dimensions(contentX + contentW - 18, rY, 18, rowH).tooltip(tt("Remove this track from your history")).build(), tc);
                 }
                 break;
                 
@@ -233,24 +257,24 @@ public class ConfigScreen extends Screen {
                         renameField.setText(e.label); 
                         renameField.setFocused(true); 
                         renameField.setTooltip(tt("Enter a new name for this track"));
-                        addDrawableChild(renameField);
+                        addTinted(renameField, tc);
                         
-                        addDrawableChild(ButtonWidget.builder(Text.literal("✔"), b -> { 
+                        addTinted(ButtonWidget.builder(Text.literal("✔"), b -> { 
                             e.label = renameField.getText(); AudioTrack cur = SonicPulseClient.getEngine().getPlayer().getPlayingTrack();
                             if (cur != null && cur.getInfo().uri.equals(e.url)) config.currentTitle = e.label;
                             renamingEntry = null; SonicPulseConfig.save(); refreshWidgets(); 
-                        }).dimensions(contentX + contentW - 18, rY, 18, rowH).tooltip(tt("Save the new track name")).build());
+                        }).dimensions(contentX + contentW - 18, rY, 18, rowH).tooltip(tt("Save the new track name")).build(), tc);
                     } else {
-                        addDrawableChild(ButtonWidget.builder(Text.literal(textRenderer.trimToWidth(e.label, contentW - 110)), b -> { SonicPulseClient.getEngine().playTrack(e.url, e.label, e.type); refreshWidgets(); })
-                            .dimensions(contentX + 20, rY, contentW - 95, rowH).tooltip(tt("Click to play this favorite track")).build());
-                        addDrawableChild(ButtonWidget.builder(Text.literal("↑"), b -> { moveFav(e, -1); })
-                            .dimensions(contentX + contentW - 73, rY, 17, rowH).tooltip(tt("Move this track up in the list")).build());
-                        addDrawableChild(ButtonWidget.builder(Text.literal("↓"), b -> { moveFav(e, 1); })
-                            .dimensions(contentX + contentW - 55, rY, 17, rowH).tooltip(tt("Move this track down in the list")).build());
-                        addDrawableChild(ButtonWidget.builder(Text.literal("R"), b -> { renamingEntry = e; refreshWidgets(); })
-                            .dimensions(contentX + contentW - 36, rY, 17, rowH).tooltip(tt("Rename this track")).build());
-                        addDrawableChild(ButtonWidget.builder(Text.literal("X"), b -> { e.favorite = false; SonicPulseConfig.save(); refreshWidgets(); })
-                            .dimensions(contentX + contentW - 18, rY, 17, rowH).tooltip(tt("Remove this track from your Favorites")).build());
+                        addTinted(ButtonWidget.builder(Text.literal(textRenderer.trimToWidth(e.label, contentW - 110)), b -> { SonicPulseClient.getEngine().playTrack(e.url, e.label, e.type); refreshWidgets(); })
+                            .dimensions(contentX + 20, rY, contentW - 95, rowH).tooltip(tt("Click to play this favorite track")).build(), tc);
+                        addTinted(ButtonWidget.builder(Text.literal("↑"), b -> { moveFav(e, -1); })
+                            .dimensions(contentX + contentW - 73, rY, 17, rowH).tooltip(tt("Move this track up in the list")).build(), tc);
+                        addTinted(ButtonWidget.builder(Text.literal("↓"), b -> { moveFav(e, 1); })
+                            .dimensions(contentX + contentW - 55, rY, 17, rowH).tooltip(tt("Move this track down in the list")).build(), tc);
+                        addTinted(ButtonWidget.builder(Text.literal("R"), b -> { renamingEntry = e; refreshWidgets(); })
+                            .dimensions(contentX + contentW - 36, rY, 17, rowH).tooltip(tt("Rename this track")).build(), tc);
+                        addTinted(ButtonWidget.builder(Text.literal("X"), b -> { e.favorite = false; SonicPulseConfig.save(); refreshWidgets(); })
+                            .dimensions(contentX + contentW - 18, rY, 17, rowH).tooltip(tt("Remove this track from your Favorites")).build(), tc);
                     }
                 }
                 break;
@@ -260,54 +284,54 @@ public class ConfigScreen extends Screen {
                 String[] pU = { "https://gist.githubusercontent.com/bpsib/67089b959e4fa898af69fea59ad74bc3/raw/c7255834f326bc6a406080eed104ebaa9d3bc85d/BBC-Radio-HLS.m3u", "https://raw.githubusercontent.com/junguler/m3u-radio-music-playlists/main/online_radio.eu/---randomized.m3u", "https://raw.githubusercontent.com/junguler/m3u-radio-music-playlists/main/tune_in/---randomized.m3u", "https://media-ssl.musicradio.com/LBCUK", "https://vs-hls-push-ww-live.akamaized.net/x=4/i=urn:bbc:pips:service:bbc_news_channel_hd/t=3840/v=pv14/b=5070016/main.m3u8" };
                 for (int i = 0; i < 5; i++) { 
                     final int pIdx = i; 
-                    addDrawableChild(ButtonWidget.builder(Text.literal(pN[i]), b -> { radioUrlField.setText(pU[pIdx]); loadRadioM3U(pU[pIdx]); })
-                        .dimensions(contentX + (i * (contentW/5)), tabY, (contentW/5) - 2, 16).tooltip(tt("Load this preset radio playlist")).build()); 
+                    addTinted(ButtonWidget.builder(Text.literal(pN[i]), b -> { radioUrlField.setText(pU[pIdx]); loadRadioM3U(pU[pIdx]); })
+                        .dimensions(contentX + (i * (contentW/5)), tabY, (contentW/5) - 2, 16).tooltip(tt("Load this preset radio playlist")).build(), tc); 
                 }
                 
                 radioUrlField = new TextFieldWidget(textRenderer, contentX, tabY + 20, contentW - 50, 20, Text.literal("M3U URL")); 
                 radioUrlField.setMaxLength(1024); 
                 radioUrlField.setTooltip(tt("Enter or paste an M3U stream URL here"));
-                addDrawableChild(radioUrlField);
+                addTinted(radioUrlField, tc);
                 
-                addDrawableChild(ButtonWidget.builder(Text.literal("LOAD"), b -> loadRadioM3U(radioUrlField.getText()))
-                    .dimensions(contentX + contentW - 45, tabY + 20, 45, 20).tooltip(tt("Fetch the radio streams from the URL above")).build());
+                addTinted(ButtonWidget.builder(Text.literal("LOAD"), b -> loadRadioM3U(radioUrlField.getText()))
+                    .dimensions(contentX + contentW - 45, tabY + 20, 45, 20).tooltip(tt("Fetch the radio streams from the URL above")).build(), tc);
                 
                 for (int i = radioScrollOffset; i < Math.min(radioStreams.size(), radioScrollOffset + 6); i++) {
                     final int rI = i; String[] rs = radioStreams.get(rI);
-                    addDrawableChild(ButtonWidget.builder(Text.literal(textRenderer.trimToWidth(rs[0], contentW - 15)), b -> { config.activeMode = SonicPulseConfig.SessionMode.RADIO; SonicPulseClient.getEngine().playTrack(rs[1], rs[0], "Radio"); refreshWidgets(); })
-                        .dimensions(contentX, tabY + 45 + ((rI - radioScrollOffset) * rowH), contentW, rowH).tooltip(tt("Click to play this radio stream")).build());
+                    addTinted(ButtonWidget.builder(Text.literal(textRenderer.trimToWidth(rs[0], contentW - 15)), b -> { config.activeMode = SonicPulseConfig.SessionMode.RADIO; SonicPulseClient.getEngine().playTrack(rs[1], rs[0], "Radio"); refreshWidgets(); })
+                        .dimensions(contentX, tabY + 45 + ((rI - radioScrollOffset) * rowH), contentW, rowH).tooltip(tt("Click to play this radio stream")).build(), tc);
                 }
                 break;
                 
             case 6: // LOCAL
                 int btnW = 120;
                 int btnX = contentX + (contentW - btnW) / 2;
-                addDrawableChild(ButtonWidget.builder(Text.literal("Choose Folder"), b -> pickFolder())
-                    .dimensions(btnX, tabY + 5, btnW, 16).tooltip(tt("Select a folder on your computer containing audio files")).build());
+                addTinted(ButtonWidget.builder(Text.literal("Choose Folder"), b -> pickFolder())
+                    .dimensions(btnX, tabY + 5, btnW, 16).tooltip(tt("Select a folder on your computer containing audio files")).build(), tc);
                 
                 for (int i = localScrollOffset; i < Math.min(localFiles.size(), localScrollOffset + 7); i++) {
                     final int lIdx = i; File fl = localFiles.get(lIdx);
                     int rY = tabY + 26 + ((lIdx - localScrollOffset) * rowH);
-                    addDrawableChild(ButtonWidget.builder(Text.literal("♫ " + textRenderer.trimToWidth(fl.getName(), contentW-25)), b -> { config.activeMode = SonicPulseConfig.SessionMode.LOCAL; SonicPulseClient.getEngine().playTrack(fl.getAbsolutePath(), fl.getName(), "Local"); refreshWidgets(); })
-                        .dimensions(contentX, rY, contentW - 15, rowH).tooltip(tt("Click to play this local audio file")).build());
+                    addTinted(ButtonWidget.builder(Text.literal("♫ " + textRenderer.trimToWidth(fl.getName(), contentW-25)), b -> { config.activeMode = SonicPulseConfig.SessionMode.LOCAL; SonicPulseClient.getEngine().playTrack(fl.getAbsolutePath(), fl.getName(), "Local"); refreshWidgets(); })
+                        .dimensions(contentX, rY, contentW - 15, rowH).tooltip(tt("Click to play this local audio file")).build(), tc);
                 }
                 break;
                 
             case 7: // ENGINE
-                addDrawableChild(ButtonWidget.builder(Text.literal("Stream Buffering: " + (config.enableStreamBuffering ? "§aEnabled" : "§cDisabled")), b -> { 
+                addTinted(ButtonWidget.builder(Text.literal("Stream Buffering: " + (config.enableStreamBuffering ? "§aEnabled" : "§cDisabled")), b -> { 
                     config.enableStreamBuffering = !config.enableStreamBuffering; SonicPulseConfig.save(); refreshWidgets(); 
-                }).dimensions(contentX, tabY + 5, contentW, 20).tooltip(tt("Enable a reservoir to prevent stuttering on slow internet")).build());
+                }).dimensions(contentX, tabY + 5, contentW, 20).tooltip(tt("Enable a reservoir to prevent stuttering on slow internet")).build(), tc);
                 
                 SliderWidget bufSlider = new SliderWidget(contentX, tabY + 30, contentW, 20, Text.literal("Buffer Duration: " + config.streamBufferSeconds + "s"), config.streamBufferSeconds / 15.0) {
                     @Override protected void updateMessage() { setMessage(Text.literal("Buffer Duration: " + config.streamBufferSeconds + "s")); }
                     @Override protected void applyValue() { config.streamBufferSeconds = (int)(value * 15); SonicPulseConfig.save(); }
                 };
                 bufSlider.setTooltip(tt("Seconds to pre-load before playing (0-15s)"));
-                addDrawableChild(bufSlider);
+                addTinted(bufSlider, tc);
 
-                addDrawableChild(ButtonWidget.builder(Text.literal("Show Buffer Bar: " + (config.showBufferingBar ? "§aOn" : "§cOff")), b -> { 
+                addTinted(ButtonWidget.builder(Text.literal("Show Buffer Bar: " + (config.showBufferingBar ? "§aOn" : "§cOff")), b -> { 
                     config.showBufferingBar = !config.showBufferingBar; SonicPulseConfig.save(); refreshWidgets(); 
-                }).dimensions(contentX, tabY + 55, contentW, 20).tooltip(tt("Display the loading progress line at the bottom of the HUD")).build());
+                }).dimensions(contentX, tabY + 55, contentW, 20).tooltip(tt("Display the loading progress line at the bottom of the HUD")).build(), tc);
                 break;
                 
             case 8: // ABOUT
@@ -381,32 +405,46 @@ public class ConfigScreen extends Screen {
     @Override public void render(DrawContext context, int mx, int my, float d) {
         int x = (width - BOX_WIDTH) / 2, y = (height - BOX_HEIGHT) / 2;
         int contentX = x + SIDEBAR_WIDTH + 10, contentW = BOX_WIDTH - SIDEBAR_WIDTH - 20, tabY = y + 42;
+        
         context.fill(x, y, x + BOX_WIDTH, y + BOX_HEIGHT, config.skin.getBgColor());
         context.fill(x, y, x + BOX_WIDTH, y + 38, 0x44000000); 
+        
+        context.fill(x + SIDEBAR_WIDTH, y + 38, x + BOX_WIDTH, y + BOX_HEIGHT - 5, (PASTEL[currentTab] & 0x00FFFFFF) | 0x22000000);
+        
         context.drawBorder(x, y, BOX_WIDTH, BOX_HEIGHT, config.skin.getBorderColor());
         context.fill(x + SIDEBAR_WIDTH, y + 38, x + SIDEBAR_WIDTH + 1, y + BOX_HEIGHT - 5, 0x44FFFFFF);
+        
         super.render(context, mx, my, d);
+        
+        for (TintRecord tr : widgetTints) {
+            context.fill(tr.widget.getX(), tr.widget.getY(), tr.widget.getX() + tr.widget.getWidth(), tr.widget.getY() + tr.widget.getHeight(), (tr.color & 0x00FFFFFF) | 0x33000000);
+        }
+
         boolean isEnginePlaying = SonicPulseClient.getEngine().isActiveOrPending(); boolean isEnginePaused = SonicPulseClient.getEngine().getPlayer().isPaused();
         String stateTxt = isEnginePlaying ? (isEnginePaused ? "§e[ ⏸ ]" : "§a[ ♫ ]") : "§7[ ■ ]"; String trkTxt = (config.currentTitle != null && isEnginePlaying) ? " » §f" + textRenderer.trimToWidth(config.currentTitle, 115) : "";
         context.drawText(textRenderer, Text.literal(stateTxt + " §8(" + config.activeMode.name() + ")" + trkTxt), x + 5, y + 6, 0xFFFFFFFF, false);
-        context.drawBorder(x + 4, y + 39 + (currentTab * 18), SIDEBAR_WIDTH - 8, 18, ACTIVE_BORDER);
+        
+        context.drawBorder(x + 4, y + 39 + (currentTab * 18), SIDEBAR_WIDTH - 8, 18, PASTEL[currentTab]);
+        
         int playBtnW = 65, playLocalX = x + BOX_WIDTH - playBtnW - 8, playFavsX = playLocalX - playBtnW - 5;
+        // GREEN/ORANGE/RED RENDER LOGIC REMAINS INTACT
         context.fill(playFavsX, y + 20, playFavsX + playBtnW, y + 33, 0x5555FF55); context.fill(playLocalX, y + 20, playLocalX + playBtnW, y + 33, 0x5555FF55);
         context.drawCenteredTextWithShadow(textRenderer, Text.literal("Play Favs"), playFavsX + playBtnW / 2, y + 23, 0xFFFFFF); context.drawCenteredTextWithShadow(textRenderer, Text.literal("Play Local"), playLocalX + playBtnW / 2, y + 23, 0xFFFFFF);
-        int deckX = x + BOX_WIDTH - 85; if (isEnginePlaying && !isEnginePaused) { context.fill(deckX + 21, y + 4, deckX + 41, y + 16, 0x5500FF00); } else if (isEnginePlaying && isEnginePaused) { context.fill(deckX + 21, y + 4, deckX + 41, y + 16, 0x55FFA500); } else { context.fill(deckX + 42, y + 4, deckX + 62, y + 16, 0x55FF0000); }
         
-        // HIGHLIGHTS & SCROLLBARS
+        int deckX = x + BOX_WIDTH - 85; 
+        if (isEnginePlaying && !isEnginePaused) { context.fill(deckX + 21, y + 4, deckX + 41, y + 16, 0x5500FF00); } 
+        else if (isEnginePlaying && isEnginePaused) { context.fill(deckX + 21, y + 4, deckX + 41, y + 16, 0x55FFA500); } 
+        else { context.fill(deckX + 42, y + 4, deckX + 62, y + 16, 0x55FF0000); }
+        
         if (currentTab == 1 && config.bgEffect != SonicPulseConfig.BgEffect.OFF) { int divY = tabY + 132; context.fill(contentX, divY, contentX + contentW, divY + 1, 0x44FFFFFF); context.drawText(textRenderer, Text.literal("§e" + config.bgEffect.name() + " TWEAKS"), contentX, divY + 4, 0xFFFFFFFF, false); }
         AudioTrack playingTrack = SonicPulseClient.getEngine().getPlayer().getPlayingTrack(); String activeUri = playingTrack != null ? playingTrack.getInfo().uri : null;
         if (activeUri != null) {
             int highlightColor = 0xFF55FF55; if (currentTab == 3) { List<SonicPulseConfig.HistoryEntry> hSorted = config.history.stream().filter(e -> !e.favorite).sorted(Comparator.comparingLong((SonicPulseConfig.HistoryEntry e) -> e.lastPlayed).reversed()).limit(20).collect(Collectors.toList()); for (int i = historyScrollOffset; i < Math.min(hSorted.size(), historyScrollOffset + 7); i++) { if (hSorted.get(i).url.equals(activeUri)) { int rY = tabY + 20 + ((i - historyScrollOffset) * 19); context.drawBorder(contentX - 1, rY - 1, contentW - 38, 21, highlightColor); } } } else if (currentTab == 4) { List<SonicPulseConfig.HistoryEntry> fvs = config.getFavoriteHistory(); for (int i = favScrollOffset; i < Math.min(fvs.size(), favScrollOffset + 8); i++) { if (fvs.get(i).url.equals(activeUri)) { int rY = tabY + ((i - favScrollOffset) * 19); context.drawBorder(contentX + 19, rY - 1, contentW - 93, 21, highlightColor); } } } else if (currentTab == 6) { for (int i = localScrollOffset; i < Math.min(localFiles.size(), localScrollOffset + 7); i++) { File fl = localFiles.get(i); if (activeUri.equals(fl.getAbsolutePath()) || activeUri.equals(fl.toURI().toString()) || activeUri.replace("\\", "/").endsWith(fl.getName())) { int rY = tabY + 26 + ((i - localScrollOffset) * 19); context.drawBorder(contentX - 1, rY - 1, contentW - 13, 21, highlightColor); } } }
         }
-        if (currentTab >= 3 && currentTab <= 6) { int total = 0, offset = 0, visible = 0; if (currentTab == 3) { total = (int)config.history.stream().filter(e -> !e.favorite).count(); offset = historyScrollOffset; visible = 7; } if (currentTab == 4) { total = config.getFavoriteHistory().size(); offset = favScrollOffset; visible = 8; } if (currentTab == 5) { total = radioStreams.size(); offset = radioScrollOffset; visible = 6; } if (currentTab == 6) { total = localFiles.size(); offset = localScrollOffset; visible = 7; } if (total > visible) { int barX = x + BOX_WIDTH - 4, barY = tabY + 5, barH = BOX_HEIGHT - 52; context.fill(barX, barY, barX + 2, barY + barH, 0x44000000); int thumbH = Math.max(10, (visible * barH) / total); int thumbY = barY + (offset * (barH - thumbH)) / (total - visible); context.fill(barX, thumbY, barX + 2, thumbY + thumbH, ACTIVE_BORDER); } }
+        if (currentTab >= 3 && currentTab <= 6) { int total = 0, offset = 0, visible = 0; if (currentTab == 3) { total = (int)config.history.stream().filter(e -> !e.favorite).count(); offset = historyScrollOffset; visible = 7; } if (currentTab == 4) { total = config.getFavoriteHistory().size(); offset = favScrollOffset; visible = 8; } if (currentTab == 5) { total = radioStreams.size(); offset = radioScrollOffset; visible = 6; } if (currentTab == 6) { total = localFiles.size(); offset = localScrollOffset; visible = 7; } if (total > visible) { int barX = x + BOX_WIDTH - 4, barY = tabY + 5, barH = BOX_HEIGHT - 52; context.fill(barX, barY, barX + 2, barY + barH, 0x44000000); int thumbH = Math.max(10, (visible * barH) / total); int thumbY = barY + (offset * (barH - thumbH)) / (total - visible); context.fill(barX, thumbY, barX + 2, thumbY + thumbH, PASTEL[currentTab]); } }
         
-        // TAB SPECIFIC RENDERING
         if (currentTab == 0) { context.drawText(textRenderer, Text.literal("Enter audio URL to stream:"), contentX, tabY + 3, 0xFFFFFFFF, false); context.drawText(textRenderer, Text.literal("§ePlatforms: YouTube, SoundCloud, Bandcamp, Vimeo"), contentX, tabY + 45, 0xBBBBBB, false); context.drawText(textRenderer, Text.literal("§eFormats: MP3, FLAC, WAV, WebM, MP4, M3U"), contentX, tabY + 65, 0xBBBBBB, false); context.drawText(textRenderer, Text.literal("§aRecently Streamed:"), contentX, tabY + 105, 0xFFFFFFFF, false); }
         
-        // RESTORED ABOUT TAB DRAWING (Properly located in render method)
         if (currentTab == 8) {
             int centerX = contentX + (contentW / 2);
             context.drawCenteredTextWithShadow(textRenderer, Text.literal("§l§nSONICPULSE"), centerX, tabY + 5, 0xFFFF00FF);
