@@ -67,9 +67,12 @@ public class SonicPulseConfig {
     public String currentTitle = null, lastRadioUrl = "", localMusicPath = "";
     public List<HistoryEntry> history = new ArrayList<>();
     
+    // NEW: Radio Memory Banks
+    public String[] radioPresetNames = {"Preset 1", "Preset 2", "Preset 3", "Preset 4"};
+    public String[] radioPresetUrls = {"", "", "", ""};
+    
     public boolean hudVisible = true, showLogo = true, showTrack = true, showBars = true, showTooltips = true;
 
-    // Phase 1: Engine & Buffering Settings
     public boolean enableStreamBuffering = true;
     public int streamBufferSeconds = 5; 
     public boolean showBufferingBar = true;
@@ -148,7 +151,8 @@ public class SonicPulseConfig {
         if (instance.history == null) instance.history = new ArrayList<>();
         if (instance.hudWidth == 0.0f) instance.hudWidth = 1.0f; 
         
-        // Fix: Removed invalid null checks on primitive variables
+        if (instance.radioPresetNames == null) instance.radioPresetNames = new String[]{"Preset 1", "Preset 2", "Preset 3", "Preset 4"};
+        if (instance.radioPresetUrls == null) instance.radioPresetUrls = new String[]{"", "", "", ""};
         if (instance.streamBufferSeconds == 0) instance.streamBufferSeconds = 5;
 
         return instance;

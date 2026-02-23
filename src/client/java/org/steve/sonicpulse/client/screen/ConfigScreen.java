@@ -121,7 +121,6 @@ public class ConfigScreen extends Screen {
             }).dimensions(x + 5, y + 40 + (i * 18), SIDEBAR_WIDTH - 10, 16).tooltip(tt(TAB_TOOLTIPS[idx])).build(), PASTEL[idx]);
         }
 
-        // TOP DECK REVERTED TO STANDARD DRAWABLE (No Pastel Tint)
         int playBtnW = 65, playLocalX = x + BOX_WIDTH - playBtnW - 8, playFavsX = playLocalX - playBtnW - 5;
         addDrawableChild(ButtonWidget.builder(Text.literal(""), b -> { 
             config.activeMode = SonicPulseConfig.SessionMode.FAVOURITES; SonicPulseConfig.save(); 
@@ -280,26 +279,52 @@ public class ConfigScreen extends Screen {
                 break;
                 
             case 5: // RADIO
-                String[] pN = {"BBC", "EU", "TuneIn", "LBC", "News"}; 
-                String[] pU = { "https://gist.githubusercontent.com/bpsib/67089b959e4fa898af69fea59ad74bc3/raw/c7255834f326bc6a406080eed104ebaa9d3bc85d/BBC-Radio-HLS.m3u", "https://raw.githubusercontent.com/junguler/m3u-radio-music-playlists/main/online_radio.eu/---randomized.m3u", "https://raw.githubusercontent.com/junguler/m3u-radio-music-playlists/main/tune_in/---randomized.m3u", "https://media-ssl.musicradio.com/LBCUK", "https://vs-hls-push-ww-live.akamaized.net/x=4/i=urn:bbc:pips:service:bbc_news_channel_hd/t=3840/v=pv14/b=5070016/main.m3u8" };
-                for (int i = 0; i < 5; i++) { 
+                String bbcUrl = "https://gist.githubusercontent.com/bpsib/67089b959e4fa898af69fea59ad74bc3/raw/c7255834f326bc6a406080eed104ebaa9d3bc85d/BBC-Radio-HLS.m3u";
+                addTinted(ButtonWidget.builder(Text.literal("BBC"), b -> { radioUrlField.setText(bbcUrl); loadRadioM3U(bbcUrl); })
+                    .dimensions(contentX, tabY, (contentW/5) - 2, 16).tooltip(tt("Load BBC Radio presets")).build(), tc);
+                
+                for (int i = 0; i < 4; i++) { 
                     final int pIdx = i; 
-                    addTinted(ButtonWidget.builder(Text.literal(pN[i]), b -> { radioUrlField.setText(pU[pIdx]); loadRadioM3U(pU[pIdx]); })
-                        .dimensions(contentX + (i * (contentW/5)), tabY, (contentW/5) - 2, 16).tooltip(tt("Load this preset radio playlist")).build(), tc); 
+                    String pName = config.radioPresetNames[pIdx];
+                    String pUrl = config.radioPresetUrls[pIdx];
+                    addTinted(ButtonWidget.builder(Text.literal(textRenderer.trimToWidth(pName, (contentW/5)-6)), b -> { 
+                        if (pUrl != null && !pUrl.isEmpty()) { radioUrlField.setText(pUrl); loadRadioM3U(pUrl); }
+                    }).dimensions(contentX + ((i+1) * (contentW/5)), tabY, (contentW/5) - 2, 16).tooltip(tt(pUrl.isEmpty() ? "Empty Slot" : "Load " + pName)).build(), tc); 
                 }
                 
                 radioUrlField = new TextFieldWidget(textRenderer, contentX, tabY + 20, contentW - 50, 20, Text.literal("M3U URL")); 
                 radioUrlField.setMaxLength(1024); 
+                if (config.lastRadioUrl != null) radioUrlField.setText(config.lastRadioUrl);
                 radioUrlField.setTooltip(tt("Enter or paste an M3U stream URL here"));
                 addTinted(radioUrlField, tc);
                 
-                addTinted(ButtonWidget.builder(Text.literal("LOAD"), b -> loadRadioM3U(radioUrlField.getText()))
+                addTinted(ButtonWidget.builder(Text.literal("LOAD"), b -> { config.lastRadioUrl = radioUrlField.getText(); SonicPulseConfig.save(); loadRadioM3U(radioUrlField.getText()); })
                     .dimensions(contentX + contentW - 45, tabY + 20, 45, 20).tooltip(tt("Fetch the radio streams from the URL above")).build(), tc);
                 
-                for (int i = radioScrollOffset; i < Math.min(radioStreams.size(), radioScrollOffset + 6); i++) {
+                // FIXED BUTTON (Disabled) below BBC
+                ButtonWidget fixedBtn = ButtonWidget.builder(Text.literal("Fixed"), b -> {})
+                    .dimensions(contentX, tabY + 45, (contentW/5) - 2, 16).tooltip(tt("BBC presets are fixed and cannot be overwritten")).build();
+                fixedBtn.active = false;
+                addTinted(fixedBtn, tc);
+
+                // 4 SAVE BUTTONS correctly shifted over by 1 column to map below presets
+                for (int i = 0; i < 4; i++) {
+                    final int sIdx = i;
+                    addTinted(ButtonWidget.builder(Text.literal("Save " + (sIdx + 1)), b -> {
+                        String currentUrl = radioUrlField.getText();
+                        if (!currentUrl.isEmpty()) {
+                            config.radioPresetUrls[sIdx] = currentUrl;
+                            if (!radioStreams.isEmpty()) { config.radioPresetNames[sIdx] = textRenderer.trimToWidth(radioStreams.get(0)[0], 40); } 
+                            else { config.radioPresetNames[sIdx] = "Preset " + (sIdx + 1); }
+                            SonicPulseConfig.save(); refreshWidgets();
+                        }
+                    }).dimensions(contentX + ((i+1) * (contentW/5)), tabY + 45, (contentW/5) - 2, 16).tooltip(tt("Save current URL to slot " + (sIdx + 1))).build(), tc);
+                }
+                
+                for (int i = radioScrollOffset; i < Math.min(radioStreams.size(), radioScrollOffset + 5); i++) {
                     final int rI = i; String[] rs = radioStreams.get(rI);
                     addTinted(ButtonWidget.builder(Text.literal(textRenderer.trimToWidth(rs[0], contentW - 15)), b -> { config.activeMode = SonicPulseConfig.SessionMode.RADIO; SonicPulseClient.getEngine().playTrack(rs[1], rs[0], "Radio"); refreshWidgets(); })
-                        .dimensions(contentX, tabY + 45 + ((rI - radioScrollOffset) * rowH), contentW, rowH).tooltip(tt("Click to play this radio stream")).build(), tc);
+                        .dimensions(contentX, tabY + 65 + ((rI - radioScrollOffset) * rowH), contentW, rowH).tooltip(tt("Click to play this radio stream")).build(), tc);
                 }
                 break;
                 
@@ -397,7 +422,7 @@ public class ConfigScreen extends Screen {
         int d = (v > 0) ? -1 : 1;
         if (currentTab == 3) historyScrollOffset = Math.max(0, Math.min((int)config.history.stream().filter(e -> !e.favorite).count() - 7, historyScrollOffset + d));
         if (currentTab == 4) favScrollOffset = Math.max(0, Math.min(config.getFavoriteHistory().size() - 8, favScrollOffset + d));
-        if (currentTab == 5) radioScrollOffset = Math.max(0, Math.min(radioStreams.size() - 6, radioScrollOffset + d));
+        if (currentTab == 5) radioScrollOffset = Math.max(0, Math.min(radioStreams.size() - 5, radioScrollOffset + d));
         if (currentTab == 6) localScrollOffset = Math.max(0, Math.min(localFiles.size() - 7, localScrollOffset + d));
         refreshWidgets(); return true;
     }
@@ -427,7 +452,6 @@ public class ConfigScreen extends Screen {
         context.drawBorder(x + 4, y + 39 + (currentTab * 18), SIDEBAR_WIDTH - 8, 18, PASTEL[currentTab]);
         
         int playBtnW = 65, playLocalX = x + BOX_WIDTH - playBtnW - 8, playFavsX = playLocalX - playBtnW - 5;
-        // GREEN/ORANGE/RED RENDER LOGIC REMAINS INTACT
         context.fill(playFavsX, y + 20, playFavsX + playBtnW, y + 33, 0x5555FF55); context.fill(playLocalX, y + 20, playLocalX + playBtnW, y + 33, 0x5555FF55);
         context.drawCenteredTextWithShadow(textRenderer, Text.literal("Play Favs"), playFavsX + playBtnW / 2, y + 23, 0xFFFFFF); context.drawCenteredTextWithShadow(textRenderer, Text.literal("Play Local"), playLocalX + playBtnW / 2, y + 23, 0xFFFFFF);
         
@@ -441,7 +465,8 @@ public class ConfigScreen extends Screen {
         if (activeUri != null) {
             int highlightColor = 0xFF55FF55; if (currentTab == 3) { List<SonicPulseConfig.HistoryEntry> hSorted = config.history.stream().filter(e -> !e.favorite).sorted(Comparator.comparingLong((SonicPulseConfig.HistoryEntry e) -> e.lastPlayed).reversed()).limit(20).collect(Collectors.toList()); for (int i = historyScrollOffset; i < Math.min(hSorted.size(), historyScrollOffset + 7); i++) { if (hSorted.get(i).url.equals(activeUri)) { int rY = tabY + 20 + ((i - historyScrollOffset) * 19); context.drawBorder(contentX - 1, rY - 1, contentW - 38, 21, highlightColor); } } } else if (currentTab == 4) { List<SonicPulseConfig.HistoryEntry> fvs = config.getFavoriteHistory(); for (int i = favScrollOffset; i < Math.min(fvs.size(), favScrollOffset + 8); i++) { if (fvs.get(i).url.equals(activeUri)) { int rY = tabY + ((i - favScrollOffset) * 19); context.drawBorder(contentX + 19, rY - 1, contentW - 93, 21, highlightColor); } } } else if (currentTab == 6) { for (int i = localScrollOffset; i < Math.min(localFiles.size(), localScrollOffset + 7); i++) { File fl = localFiles.get(i); if (activeUri.equals(fl.getAbsolutePath()) || activeUri.equals(fl.toURI().toString()) || activeUri.replace("\\", "/").endsWith(fl.getName())) { int rY = tabY + 26 + ((i - localScrollOffset) * 19); context.drawBorder(contentX - 1, rY - 1, contentW - 13, 21, highlightColor); } } }
         }
-        if (currentTab >= 3 && currentTab <= 6) { int total = 0, offset = 0, visible = 0; if (currentTab == 3) { total = (int)config.history.stream().filter(e -> !e.favorite).count(); offset = historyScrollOffset; visible = 7; } if (currentTab == 4) { total = config.getFavoriteHistory().size(); offset = favScrollOffset; visible = 8; } if (currentTab == 5) { total = radioStreams.size(); offset = radioScrollOffset; visible = 6; } if (currentTab == 6) { total = localFiles.size(); offset = localScrollOffset; visible = 7; } if (total > visible) { int barX = x + BOX_WIDTH - 4, barY = tabY + 5, barH = BOX_HEIGHT - 52; context.fill(barX, barY, barX + 2, barY + barH, 0x44000000); int thumbH = Math.max(10, (visible * barH) / total); int thumbY = barY + (offset * (barH - thumbH)) / (total - visible); context.fill(barX, thumbY, barX + 2, thumbY + thumbH, PASTEL[currentTab]); } }
+        
+        if (currentTab >= 3 && currentTab <= 6) { int total = 0, offset = 0, visible = 0; if (currentTab == 3) { total = (int)config.history.stream().filter(e -> !e.favorite).count(); offset = historyScrollOffset; visible = 7; } if (currentTab == 4) { total = config.getFavoriteHistory().size(); offset = favScrollOffset; visible = 8; } if (currentTab == 5) { total = radioStreams.size(); offset = radioScrollOffset; visible = 5; } if (currentTab == 6) { total = localFiles.size(); offset = localScrollOffset; visible = 7; } if (total > visible) { int barX = x + BOX_WIDTH - 4, barY = tabY + 5, barH = BOX_HEIGHT - 52; context.fill(barX, barY, barX + 2, barY + barH, 0x44000000); int thumbH = Math.max(10, (visible * barH) / total); int thumbY = barY + (offset * (barH - thumbH)) / (total - visible); context.fill(barX, thumbY, barX + 2, thumbY + thumbH, PASTEL[currentTab]); } }
         
         if (currentTab == 0) { context.drawText(textRenderer, Text.literal("Enter audio URL to stream:"), contentX, tabY + 3, 0xFFFFFFFF, false); context.drawText(textRenderer, Text.literal("§ePlatforms: YouTube, SoundCloud, Bandcamp, Vimeo"), contentX, tabY + 45, 0xBBBBBB, false); context.drawText(textRenderer, Text.literal("§eFormats: MP3, FLAC, WAV, WebM, MP4, M3U"), contentX, tabY + 65, 0xBBBBBB, false); context.drawText(textRenderer, Text.literal("§aRecently Streamed:"), contentX, tabY + 105, 0xFFFFFFFF, false); }
         
