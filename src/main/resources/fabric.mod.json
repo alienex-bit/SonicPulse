@@ -1,24 +1,25 @@
 {
   "schemaVersion": 1,
   "id": "sonicpulse",
-  "version": "1.3.4",
+  "version": "1.0.0",
   "name": "SonicPulse",
-  "description": "Customizable music player with visualizer and audio engine for Minecraft.",
-  "authors": ["Steve Watkins"],
+  "description": "Professional Audio Streaming and Reactive Visualizer Ribbon.",
+  "authors": [
+    "Steve Watkins"
+  ],
   "contact": {
-    "homepage": "https://github.com/alienex-bit/SonicPulse",
-    "sources": "https://github.com/alienex-bit/SonicPulse",
-    "issues": "https://github.com/yourusername/SonicPulse/issues"
+    "homepage": "https://modrinth.com/mod/sonicpulse",
+    "sources": "https://github.com/steve-watkins/SonicPulse"
   },
   "license": "MIT",
   "icon": "assets/sonicpulse/icon.png",
   "environment": "*",
   "entrypoints": {
-    "client": [
-      "org.steve.sonicpulse.client.SonicPulseClient"
-    ],
     "main": [
       "org.steve.sonicpulse.SonicPulse"
+    ],
+    "client": [
+      "org.steve.sonicpulse.client.SonicPulseClient"
     ],
     "modmenu": [
       "org.steve.sonicpulse.client.modmenu.SonicPulseModMenu"
@@ -32,8 +33,9 @@
     }
   ],
   "depends": {
-    "fabricloader": ">=${loader_version}",
-    "fabric-api": "*",
-    "minecraft": "${minecraft_version}"
+    "fabricloader": ">=0.16.9",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "fabric-api": "*"
   }
 }
