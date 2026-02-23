@@ -15,9 +15,12 @@ public class AudioOutput {
     private volatile float[] amplitudes = new float[32];
     private float maxPeak = 1000000f; 
     
-    // OPTIMIZATION: Pre-allocate buffers to prevent heavy GC stutter
     private final float[] realBuffer = new float[512];
     private final float[] imagBuffer = new float[512];
+
+    private long lastFrameTime = System.currentTimeMillis();
+    private static final long IDLE_THRESHOLD_MS = 10000; 
+    private static final long CLOSE_THRESHOLD_MS = 30000; 
 
     public AudioOutput(AudioPlayer player) { this.player = player; }
     public float[] getAmplitudes() { return amplitudes.clone(); }
@@ -25,39 +28,53 @@ public class AudioOutput {
     public void start() {
         if (running) return;
         try {
+            ensureLineOpen();
+            player.setVolume(SonicPulseConfig.get().volume);
+            running = true;
+            thread = new Thread(this::runAudioLoop, "SonicPulse-Audio-Optimized");
+            thread.setDaemon(true);
+            thread.start();
+        } catch (Exception e) { e.printStackTrace(); }
+    }
+
+    private void ensureLineOpen() throws LineUnavailableException {
+        if (line == null || !line.isOpen()) {
             MinecraftClient.getInstance().getSoundManager().stopAll();
             AudioFormat format = new AudioFormat(48000, 16, 2, true, false);
             DataLine.Info info = new DataLine.Info(SourceDataLine.class, format);
             line = (SourceDataLine) AudioSystem.getLine(info);
             line.open(format, 48000);
             line.start();
-            
-            player.setVolume(SonicPulseConfig.get().volume);
-            running = true;
-            thread = new Thread(() -> {
-                while (running) {
-                    try {
-                        AudioFrame frame = player.provide();
-                        if (frame != null) {
-                            byte[] data = frame.getData();
-                            int validLen = data.length - (data.length % 4);
-                            if (validLen > 0) {
-                                line.write(data, 0, validLen);
-                                if (player.getVolume() != SonicPulseConfig.get().volume) {
-                                    player.setVolume(SonicPulseConfig.get().volume);
-                                }
-                                updateAmplitudes(data);
-                            }
-                        } else {
-                            Arrays.fill(amplitudes, 0);
-                            Thread.sleep(10);
+        }
+    }
+    
+    private void runAudioLoop() {
+        while (running) {
+            try {
+                AudioFrame frame = player.provide();
+                if (frame != null) {
+                    lastFrameTime = System.currentTimeMillis();
+                    ensureLineOpen();
+                    byte[] data = frame.getData();
+                    int validLen = data.length - (data.length % 4);
+                    if (validLen > 0) {
+                        line.write(data, 0, validLen);
+                        if (player.getVolume() != SonicPulseConfig.get().volume) {
+                            player.setVolume(SonicPulseConfig.get().volume);
                         }
-                    } catch (Exception e) { e.printStackTrace(); }
+                        updateAmplitudes(data);
+                    }
+                } else {
+                    Arrays.fill(amplitudes, 0);
+                    long idleTime = System.currentTimeMillis() - lastFrameTime;
+                    if (idleTime > CLOSE_THRESHOLD_MS && line != null && line.isOpen()) {
+                        line.stop();
+                        line.close();
+                    }
+                    Thread.sleep(idleTime > IDLE_THRESHOLD_MS ? 500 : 10);
                 }
-            }, "SonicPulse-Audio-Decoupled");
-            thread.setDaemon(true);
-            thread.start();
-        } catch (Exception e) { e.printStackTrace(); }
+            } catch (Exception e) { e.printStackTrace(); }
+        }
     }
     
     public void stop() {
@@ -69,17 +86,13 @@ public class AudioOutput {
     private void updateAmplitudes(byte[] data) {
         int n = 512;
         if (data.length < n * 4) return;
-        
-        // OPTIMIZATION: Reuse existing arrays instead of allocating new ones
         Arrays.fill(imagBuffer, 0f);
-        
         for (int i = 0; i < n; i++) {
             int sampleL = (data[i * 4 + 1] << 8) | (data[i * 4] & 0xFF);
             int sampleR = (data[i * 4 + 3] << 8) | (data[i * 4 + 2] & 0xFF);
             realBuffer[i] = (sampleL + sampleR) / 2.0f;
             realBuffer[i] *= (float)(0.5 * (1 - Math.cos(2 * Math.PI * i / (n - 1))));
         }
-        
         int m = 9;
         for (int i = 0; i < n; i++) {
             int j = Integer.reverse(i) >>> (32 - m);
@@ -101,7 +114,6 @@ public class AudioOutput {
                 }
             }
         }
-
         float currentMax = 0;
         int lastBin = 1;
         for (int i = 0; i < 32; i++) {
@@ -109,26 +121,18 @@ public class AudioOutput {
             int endBin = (int)(Math.pow(n/2.0, (i + 1) / 32.0));
             if (endBin <= startBin) endBin = startBin + 1;
             lastBin = endBin;
-
             float sum = 0;
             for (int j = startBin; j < endBin && j < n/2; j++) {
                 sum += (float)Math.sqrt(realBuffer[j]*realBuffer[j] + imagBuffer[j]*imagBuffer[j]);
             }
             float avg = sum / (endBin - startBin);
             if (avg > currentMax) currentMax = avg;
-
             maxPeak = maxPeak * 0.99f + Math.max(currentMax, 500000f) * 0.01f;
-            
             float freqBoost = 1.0f + (i * 0.15f);
             float val = (avg * freqBoost) / (maxPeak * 0.8f);
-            
             if (val > 1.0f) val = 1.0f;
-
-            if (val > amplitudes[i]) {
-                amplitudes[i] = val; 
-            } else {
-                amplitudes[i] = amplitudes[i] * 0.75f + val * 0.25f; 
-            }
+            if (val > amplitudes[i]) amplitudes[i] = val; 
+            else amplitudes[i] = amplitudes[i] * 0.75f + val * 0.25f; 
         }
     }
 }
