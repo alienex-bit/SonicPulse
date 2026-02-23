@@ -78,8 +78,9 @@ public class SonicPulseConfig {
     
     public float eqBass = 0.0f;
     public float eqTreble = 0.0f;
-    // NEW: Stereo Width Setting (1.0f is normal)
     public float stereoWidth = 1.0f;
+    // New Toggle: Enables Automatic Muffling when head is underwater
+    public boolean underwaterMuffle = true;
 
     public PulseIntensity pulseIntensity = PulseIntensity.NORMAL;
     public PulseDecay pulseDecay = PulseDecay.FLUID;
@@ -87,6 +88,7 @@ public class SonicPulseConfig {
     public AuraPalette auraPalette = AuraPalette.RAINBOW;
     public VhsGlitch vhsGlitch = VhsGlitch.HEAVY;
     public VhsScanlines vhsScanlines = VhsScanlines.FAINT;
+    // FIXED: Added proper Enum prefixes to resolve build errors
     public HeatmapScale heatmapScale = HeatmapScale.FIRE;
     public HeatmapSpread heatmapSpread = HeatmapSpread.CONFINED;
 
@@ -154,6 +156,7 @@ public class SonicPulseConfig {
         if (instance.ribbonLayout == null) instance.ribbonLayout = RibbonLayout.LOG_TRK_BAR;
         if (instance.history == null) instance.history = new ArrayList<>();
         if (instance.hudWidth == 0.0f) instance.hudWidth = 1.0f; 
+        
         if (instance.radioPresetNames == null) instance.radioPresetNames = new String[]{"Preset 1", "Preset 2", "Preset 3", "Preset 4"};
         if (instance.radioPresetUrls == null) instance.radioPresetUrls = new String[]{"", "", "", ""};
         if (instance.streamBufferSeconds == 0) instance.streamBufferSeconds = 5;

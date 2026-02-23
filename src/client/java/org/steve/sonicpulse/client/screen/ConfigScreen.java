@@ -371,13 +371,17 @@ public class ConfigScreen extends Screen {
                 trebleSlider.setTooltip(tt("Boost or cut high frequency treble (-100% to +100%)"));
                 addTinted(trebleSlider, tc);
 
-                // NEW: STEREO WIDTH SLIDER
                 SliderWidget widthSl = new SliderWidget(contentX, tabY + 125, contentW, 20, Text.literal("Stereo Width: " + (int)(config.stereoWidth * 100) + "%"), (config.stereoWidth / 2.0)) { 
                     @Override protected void updateMessage() { setMessage(Text.literal("Stereo Width: " + (int)(config.stereoWidth * 100) + "%")); } 
                     @Override protected void applyValue() { config.stereoWidth = (float)(value * 2.0); SonicPulseConfig.save(); } 
                 };
                 widthSl.setTooltip(tt("Expand the soundstage (0% = Mono, 100% = Normal, 200% = Super Wide)"));
                 addTinted(widthSl, tc);
+
+                // MASTER UNDERWATER MUFFLE TOGGLE
+                addTinted(ButtonWidget.builder(Text.literal("Underwater Auto-Muffle: " + (config.underwaterMuffle ? "§aON" : "§cOFF")), b -> { 
+                    config.underwaterMuffle = !config.underwaterMuffle; SonicPulseConfig.save(); refreshWidgets(); 
+                }).dimensions(contentX, tabY + 150, contentW, 20).tooltip(tt("Toggle automatic low-pass filtering when submerged underwater.")).build(), tc);
                 break;
                 
             case 8: // ABOUT
@@ -436,8 +440,7 @@ public class ConfigScreen extends Screen {
     }
 
     private void loadRadioM3U(String radioInput) {
-        radioStreams.clear(); new Thread(() -> { try { java.net.URL urlObj = new URI(radioInput).toURL(); java.io.BufferedReader rd = new java.io.BufferedReader(new java.io.InputStreamReader(urlObj.openStream())); String ln, lt = null; while ((ln = rd.readLine()) != null) { ln = ln.trim(); if (ln.isEmpty() || ln.startsWith("#EXTM3U")) continue; if (ln.startsWith("#EXTINF")) { int c = ln.indexOf(","); if (c != -1) lt = ln.substring(c + 1).trim(); } else if (!ln.startsWith("#")) { radioStreams.add(new String[]{lt != null ? lt : ln, ln}); lt = null; } } rd.close(); } catch (Exception e) {} MinecraftClient.getInstance().execute(this::refreshWidgets); }).start();
-    }
+        radioStreams.clear(); new Thread(() -> { try { java.net.URL urlObj = new URI(radioInput).toURL(); java.io.BufferedReader rd = new java.io.BufferedReader(new java.io.InputStreamReader(urlObj.openStream())); String ln, lt = null; while ((ln = rd.readLine()) != null) { ln = ln.trim(); if (ln.isEmpty() || ln.startsWith("#EXTM3U")) continue; if (ln.startsWith("#EXTINF")) { int c = ln.indexOf(","); if (c != -1) lt = ln.substring(c + 1).trim(); } else if (!ln.startsWith("#")) { radioStreams.add(new String[]{lt != null ? lt : ln, ln}); lt = null; } } rd.close(); } catch (Exception e) {} MinecraftClient.getInstance().execute(this::refreshWidgets); }).start(); }
 
     @Override public boolean mouseScrolled(double mx, double my, double h, double v) {
         int d = (v > 0) ? -1 : 1;

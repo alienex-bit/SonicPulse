@@ -20,17 +20,16 @@ public class AudioOutput {
     private final float[] imagBuffer = new float[512];
 
     private long lastFrameTime = System.currentTimeMillis();
-    private static final long IDLE_THRESHOLD_MS = 10000; 
-    private static final long CLOSE_THRESHOLD_MS = 30000; 
-    
     private static final int SAMPLE_RATE = 48000;
     private static final int HARDWARE_BUFFER_SIZE = SAMPLE_RATE * 4; 
 
     // BIQUAD FILTER STATES
     private float b0, b1, b2, a1, a2;
     private float t_b0, t_b1, t_b2, t_a1, t_a2;
+    private float m_b0, m_b1, m_b2, m_a1, m_a2; // Muffle coefficients
     private float x1L, x2L, y1L, y2L, x1R, x2R, y1R, y2R;
     private float tx1L, tx2L, ty1L, ty2L, tx1R, tx2R, ty1R, ty2R;
+    private float mx1L, mx2L, my1L, my2L, mx1R, mx2R, my1R, my2R; 
 
     public AudioOutput(AudioPlayer player) { this.player = player; }
     public float[] getAmplitudes() { return amplitudes.clone(); }
@@ -61,6 +60,12 @@ public class AudioOutput {
         SonicPulseConfig cfg = SonicPulseConfig.get();
         setupLowShelf(150, cfg.eqBass * 15.0f);
         setupHighShelf(4000, cfg.eqTreble * 15.0f);
+        
+        // NEW Logic: Only apply if toggle is ENABLED AND player is actually UNDERWATER
+        boolean submerged = MinecraftClient.getInstance().player != null && MinecraftClient.getInstance().player.isSubmergedInWater();
+        if (cfg.underwaterMuffle && submerged) {
+            setupLowPass(400, 0.707f); 
+        }
     }
 
     private void setupLowShelf(float freq, float db) {
@@ -88,6 +93,15 @@ public class AudioOutput {
         t_a1 = 2*((A-1) - (A+1)*cs); t_a2 = (A+1) - (A-1)*cs - 2*(float)Math.sqrt(A)*alpha;
         t_b0 /= ta0; t_b1 /= ta0; t_b2 /= ta0; t_a1 /= ta0; t_a2 /= ta0;
     }
+
+    private void setupLowPass(float freq, float q) {
+        float omega = (float) (2 * Math.PI * freq / SAMPLE_RATE);
+        float sn = (float) Math.sin(omega); float cs = (float) Math.cos(omega);
+        float alpha = sn / (2 * q);
+        m_b0 = (1 - cs) / 2; m_b1 = 1 - cs; m_b2 = (1 - cs) / 2;
+        float a0 = 1 + alpha; m_a1 = -2 * cs; m_a2 = 1 - alpha;
+        m_b0 /= a0; m_b1 /= a0; m_b2 /= a0; m_a1 /= a0; m_a2 /= a0;
+    }
     
     private void runAudioLoop() {
         while (running) {
@@ -109,13 +123,16 @@ public class AudioOutput {
                 if (dataToPlay != null) {
                     ensureLineOpen();
                     updateFilterCoefficients();
-                    float width = SonicPulseConfig.get().stereoWidth;
+                    SonicPulseConfig cfg = SonicPulseConfig.get();
+                    
+                    // Master Condition: Toggle ON + In Water
+                    boolean actuallyMuffle = cfg.underwaterMuffle && MinecraftClient.getInstance().player != null && MinecraftClient.getInstance().player.isSubmergedInWater();
                     
                     for (int i = 0; i < dataToPlay.length; i += 4) {
                         float left = (short)((dataToPlay[i+1] << 8) | (dataToPlay[i] & 0xFF));
                         float right = (short)((dataToPlay[i+3] << 8) | (dataToPlay[i+2] & 0xFF));
 
-                        // 1. EQ Processing (Biquads)
+                        // 1. EQ
                         float yL = b0*left + b1*x1L + b2*x2L - a1*y1L - a2*y2L;
                         x2L = x1L; x1L = left; y2L = y1L; y1L = yL;
                         float yR = b0*right + b1*x1R + b2*x2R - a1*y1R - a2*y2R;
@@ -126,14 +143,20 @@ public class AudioOutput {
                         float tyR = t_b0*yR + t_b1*tx1R + t_b2*tx2R - t_a1*ty1R - t_a2*ty2R;
                         tx2R = tx1R; tx1R = yR; ty2R = ty1R; ty1R = tyR;
 
-                        // 2. Mid-Side Stereo Widening Matrix
+                        // 2. Conditional Muffle (Automatic)
+                        if (actuallyMuffle) {
+                            float myL = m_b0*tyL + m_b1*mx1L + m_b2*mx2L - m_a1*my1L - m_a2*my2L;
+                            mx2L = mx1L; mx1L = tyL; my2L = my1L; my1L = myL; tyL = myL;
+                            float myR = m_b0*tyR + m_b1*mx1R + m_b2*mx2R - m_a1*my1R - m_a2*my2R;
+                            mx2R = mx1R; mx1R = tyR; my2R = my1R; my1R = myR; tyR = myR;
+                        }
+
+                        // 3. Widening
                         float mid = (tyL + tyR) * 0.5f;
                         float side = (tyR - tyL) * 0.5f;
-                        side *= width; // Apply widening to the side channel difference
+                        side *= cfg.stereoWidth;
 
-                        float outL_f = mid - side;
-                        float outR_f = mid + side;
-
+                        float outL_f = mid - side; float outR_f = mid + side;
                         short outL = (short)Math.max(-32768, Math.min(32767, outL_f));
                         short outR = (short)Math.max(-32768, Math.min(32767, outR_f));
 
