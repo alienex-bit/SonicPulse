@@ -10,20 +10,19 @@ SonicPulse aims to be the most performant and aesthetically versatile media HUD 
 
 - [x] **ModMenu Compatibility**: Metadata display and configuration screen integration.
 - [x] **Idle Throttling**: FFT "Sleep Mode" for `AudioOutput` when music is stopped or the HUD is hidden.
-- [ ] **Buffer Optimization**: Implementation of dynamic buffer sizing in `line.write` to eliminate audio error logs.
+- [x] **Buffer Optimization**: Implementation of dynamic buffer sizing in `line.write` to eliminate audio error logs.
 - [x] **Resource Cleanup**: Critical shutdown hooks for LavaPlayer and OpenAL to prevent memory leaks.
-- [ ] **Stream Buffering**: Configurable latency buffer for high-latency or low-bandwidth networks.
+- [x] **Stream Buffering**: Configurable latency buffer for high-latency or low-bandwidth networks.
 
 ---
 
 ## 🎧 Phase 2: Audio Fidelity & UX
 *Enhancing the auditory experience and user control interfaces.*
 
-- [ ] **Audio Engine Config Tab**: Dedicated sub-menu for real-time engine manipulation.
+- [x] **Audio Engine Config Tab**: Dedicated sub-menu for real-time engine manipulation.
 - [ ] **DSP Equalizer**: Frequency-specific gain sliders for Bass and Treble.
 - [ ] **Stereo Widening**: Immersive soundstage modification logic.
 - [ ] **Environmental Reverb**: Virtual room presets including Hall, Cave, and Large Room.
-- [ ] **Drag-and-Drop HUD**: Interactive "Workbench Mode" for pixel-perfect positioning.
 
 ---
 
@@ -39,13 +38,13 @@ SonicPulse aims to be the most performant and aesthetically versatile media HUD 
 ## 🎨 Phase 4: HUD Refinements
 *Deep customization and advanced visual styling options.*
 
-- [ ] **Color Themes & Palettes**: Curated presets (Neon, Retro, Cyber) and custom element modes.
-- [ ] **Typography Options**: Selectable monospace/UI fonts with bold and outline toggles.
-- [ ] **Minimal Effects**: CPU-friendly pulsing and peak-tinting visual effects.
-- [ ] **Background Panels**: Semi-transparent rectangular panels with configurable opacity.
-- [ ] **Accessibility Modes**: High-contrast palettes and reduced motion options.
-- [ ] **Live Preview**: Real-time workbench preview for style modifications.
-- [ ] **Performance Guardrails**: "Low CPU Mode" and safe visual defaults.
+- [x] **Color Themes & Palettes**: Curated presets (Neon, Retro, Cyber) and custom element modes.
+- [x] **Typography Options**: Selectable monospace/UI fonts with bold and outline toggles.
+- [x] **Minimal Effects**: CPU-friendly pulsing and peak-tinting visual effects.
+- [x] **Background Panels**: Semi-transparent rectangular panels with configurable opacity.
+- [x] **Accessibility Modes**: High-contrast palettes and reduced motion options.
+- [x] **Live Preview**: Real-time workbench preview for style modifications.
+- [x] **Performance Guardrails**: "Low CPU Mode" and safe visual defaults.
 - [x] **Favourite / History Config**: Quick-access, sorting, and retention controls.
 
 ---
