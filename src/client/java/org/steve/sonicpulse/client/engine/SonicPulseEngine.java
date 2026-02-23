@@ -21,12 +21,19 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class SonicPulseEngine {
     private final DefaultAudioPlayerManager manager = new DefaultAudioPlayerManager();
     private final AudioPlayer player;
     private final AudioOutput output;
     private boolean pending = false;
+
+    // Phase 1: Stream Buffering
+    private final LinkedBlockingQueue<byte[]> buffer = new LinkedBlockingQueue<>();
+    private boolean buffering = false;
+    private boolean trackUsesBuffer = false;
+    private int bufferGoal = 0;
 
     public SonicPulseEngine() {
         manager.getConfiguration().setOutputFormat(StandardAudioDataFormats.COMMON_PCM_S16_LE);
@@ -40,12 +47,18 @@ public class SonicPulseEngine {
         player = manager.createPlayer();
         output = new AudioOutput(player);
         
-        // AUTOPLAY: Attach the custom TrackScheduler to seamlessly play the next song
         player.addListener(new TrackScheduler());
     }
 
     public void playTrack(String url, String label, String type) { 
         pending = true;
+        
+        // BUFFER SETUP: Dynamically determine if this track needs the safety net
+        trackUsesBuffer = SonicPulseConfig.get().enableStreamBuffering && !"Local".equalsIgnoreCase(type);
+        buffering = trackUsesBuffer;
+        bufferGoal = SonicPulseConfig.get().streamBufferSeconds * 50; 
+        buffer.clear();
+        
         output.start();
         
         SonicPulseConfig.HistoryEntry savedFav = SonicPulseConfig.get().history.stream()
@@ -64,11 +77,9 @@ public class SonicPulseEngine {
         manager.loadItem(url, new TrackLoadHandler(player, this)); 
     }
 
-    // --- AUTOPLAY SCHEDULER (The Endless Groove) ---
     private class TrackScheduler extends AudioEventAdapter {
         @Override
         public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason) {
-            // ONLY trigger next track if the track ended naturally (not stopped manually)
             if (endReason.mayStartNext) {
                 playNextInList(track);
             }
@@ -127,10 +138,20 @@ public class SonicPulseEngine {
         }
     }
 
-    public void tick() {}
+    public void tick() {
+        if (buffering && buffer.size() >= bufferGoal) { buffering = false; }
+    }
+
     public void clearPending() { this.pending = false; }
-    public boolean isActiveOrPending() { return player.getPlayingTrack() != null || pending; }
-    public void stop() { player.stopTrack(); pending = false; }
+    public boolean isActiveOrPending() { return player.getPlayingTrack() != null || pending || buffering; }
+    public void stop() { player.stopTrack(); pending = false; buffering = false; trackUsesBuffer = false; buffer.clear(); output.stop(); }
     public AudioPlayer getPlayer() { return player; }
     public float[] getVisualizerData() { return output.getAmplitudes(); }
+
+    // Buffering Accessors
+    public boolean doesTrackUseBuffer() { return trackUsesBuffer; }
+    public boolean isBuffering() { return buffering; }
+    public float getBufferProgress() { return bufferGoal == 0 ? 0 : Math.min(1.0f, (float)buffer.size() / bufferGoal); }
+    public void pushFrame(byte[] data) { buffer.offer(data); }
+    public byte[] popFrame() { return buffer.poll(); }
 }

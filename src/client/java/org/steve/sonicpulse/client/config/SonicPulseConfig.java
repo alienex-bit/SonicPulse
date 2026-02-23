@@ -34,9 +34,7 @@ public class SonicPulseConfig {
 
     public enum SessionMode { NONE, FAVOURITES, HISTORY, LOCAL, RADIO, REMOTE }
     public enum VisualizerStyle { SOLID, FLOATING_PEAKS }
-    
     public enum BgEffect { OFF, PULSE, AURA, VHS, HEATMAP }
-    
     public enum PulseIntensity { SUBTLE, NORMAL, OVERDRIVE }
     public enum PulseDecay { SNAPPY, FLUID }
     public enum AuraSpeed { CHILL, NORMAL, WARP }
@@ -59,7 +57,7 @@ public class SonicPulseConfig {
     }
 
     public float hudScale = 1.0f; 
-    public float hudWidth = 1.0f; // NEW: Controls the horizontal squeeze
+    public float hudWidth = 1.0f; 
     public int barColor = 0xFF00BFFF, titleColor = 0xFFFF00FF, volume = 50;
     public Skin skin = Skin.DEFAULT;
     public SessionMode activeMode = SessionMode.NONE;
@@ -70,6 +68,11 @@ public class SonicPulseConfig {
     public List<HistoryEntry> history = new ArrayList<>();
     
     public boolean hudVisible = true, showLogo = true, showTrack = true, showBars = true, showTooltips = true;
+
+    // Phase 1: Engine & Buffering Settings
+    public boolean enableStreamBuffering = true;
+    public int streamBufferSeconds = 5; 
+    public boolean showBufferingBar = true;
 
     public PulseIntensity pulseIntensity = PulseIntensity.NORMAL;
     public PulseDecay pulseDecay = PulseDecay.FLUID;
@@ -143,16 +146,10 @@ public class SonicPulseConfig {
         if (instance.visStyle == null) instance.visStyle = VisualizerStyle.SOLID;
         if (instance.ribbonLayout == null) instance.ribbonLayout = RibbonLayout.LOG_TRK_BAR;
         if (instance.history == null) instance.history = new ArrayList<>();
-        if (instance.hudWidth == 0.0f) instance.hudWidth = 1.0f; // Armor plate for missing width data
+        if (instance.hudWidth == 0.0f) instance.hudWidth = 1.0f; 
         
-        if (instance.pulseIntensity == null) instance.pulseIntensity = PulseIntensity.NORMAL;
-        if (instance.pulseDecay == null) instance.pulseDecay = PulseDecay.FLUID;
-        if (instance.auraSpeed == null) instance.auraSpeed = AuraSpeed.NORMAL;
-        if (instance.auraPalette == null) instance.auraPalette = AuraPalette.RAINBOW;
-        if (instance.vhsGlitch == null) instance.vhsGlitch = VhsGlitch.HEAVY;
-        if (instance.vhsScanlines == null) instance.vhsScanlines = VhsScanlines.FAINT;
-        if (instance.heatmapScale == null) instance.heatmapScale = HeatmapScale.FIRE;
-        if (instance.heatmapSpread == null) instance.heatmapSpread = HeatmapSpread.CONFINED;
+        // Fix: Removed invalid null checks on primitive variables
+        if (instance.streamBufferSeconds == 0) instance.streamBufferSeconds = 5;
 
         return instance;
     }

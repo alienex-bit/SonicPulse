@@ -3,6 +3,7 @@ package org.steve.sonicpulse.client.engine;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
 import com.sedmelluq.discord.lavaplayer.track.playback.AudioFrame;
 import net.minecraft.client.MinecraftClient;
+import org.steve.sonicpulse.client.SonicPulseClient;
 import org.steve.sonicpulse.client.config.SonicPulseConfig;
 import javax.sound.sampled.*;
 import java.util.Arrays;
@@ -21,6 +22,9 @@ public class AudioOutput {
     private long lastFrameTime = System.currentTimeMillis();
     private static final long IDLE_THRESHOLD_MS = 10000; 
     private static final long CLOSE_THRESHOLD_MS = 30000; 
+    
+    private static final int SAMPLE_RATE = 48000;
+    private static final int HARDWARE_BUFFER_SIZE = SAMPLE_RATE * 4; 
 
     public AudioOutput(AudioPlayer player) { this.player = player; }
     public float[] getAmplitudes() { return amplitudes.clone(); }
@@ -40,10 +44,10 @@ public class AudioOutput {
     private void ensureLineOpen() throws LineUnavailableException {
         if (line == null || !line.isOpen()) {
             MinecraftClient.getInstance().getSoundManager().stopAll();
-            AudioFormat format = new AudioFormat(48000, 16, 2, true, false);
+            AudioFormat format = new AudioFormat(SAMPLE_RATE, 16, 2, true, false);
             DataLine.Info info = new DataLine.Info(SourceDataLine.class, format);
             line = (SourceDataLine) AudioSystem.getLine(info);
-            line.open(format, 48000);
+            line.open(format, HARDWARE_BUFFER_SIZE);
             line.start();
         }
     }
@@ -51,18 +55,40 @@ public class AudioOutput {
     private void runAudioLoop() {
         while (running) {
             try {
+                SonicPulseEngine engine = SonicPulseClient.getEngine();
                 AudioFrame frame = player.provide();
+                byte[] dataToPlay = null;
+
+                // BUG FIX: Only intercept frames if this specific track is marked for buffering
                 if (frame != null) {
                     lastFrameTime = System.currentTimeMillis();
+                    if (engine != null && engine.doesTrackUseBuffer()) {
+                        engine.pushFrame(frame.getData());
+                        if (!engine.isBuffering()) {
+                            dataToPlay = engine.popFrame();
+                        }
+                    } else {
+                        // Local files or buffering disabled bypass directly here
+                        dataToPlay = frame.getData();
+                    }
+                } else if (engine != null && engine.doesTrackUseBuffer() && !engine.isBuffering()) {
+                    dataToPlay = engine.popFrame();
+                }
+
+                if (dataToPlay != null) {
                     ensureLineOpen();
-                    byte[] data = frame.getData();
-                    int validLen = data.length - (data.length % 4);
+                    int validLen = dataToPlay.length - (dataToPlay.length % 4);
                     if (validLen > 0) {
-                        line.write(data, 0, validLen);
+                        while (line.available() < validLen && running) {
+                            Thread.sleep(2);
+                        }
+                        if (!running) break;
+
+                        line.write(dataToPlay, 0, validLen);
                         if (player.getVolume() != SonicPulseConfig.get().volume) {
                             player.setVolume(SonicPulseConfig.get().volume);
                         }
-                        updateAmplitudes(data);
+                        updateAmplitudes(dataToPlay);
                     }
                 } else {
                     Arrays.fill(amplitudes, 0);
