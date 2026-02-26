@@ -349,6 +349,18 @@ public class ConfigScreen extends Screen {
                             refreshWidgets();
                         }).dimensions(contentX + colW + 10, subY, colW, 20)
                                 .tooltip(tt("Constrain the heat to the center or let it stretch")).build(), tc);
+                    } else if (config.bgEffect == SonicPulseConfig.BgEffect.STARFIELD) {
+                        addTinted(ButtonWidget.builder(Text.literal("Sparks: " + config.sparkCount.name()), b -> {
+                            config.nextSparkCount();
+                            refreshWidgets();
+                        }).dimensions(contentX, subY, colW, 20)
+                                .tooltip(tt("FEW = 4, NORMAL = 8, STORM = 16 sparks per bass hit")).build(), tc);
+                        addTinted(ButtonWidget.builder(Text.literal("Decay: " + config.sparkDecay.name()), b -> {
+                            config.nextSparkDecay();
+                            refreshWidgets();
+                        }).dimensions(contentX + colW + 10, subY, colW, 20)
+                                .tooltip(tt("SNAP = particles vanish fast, DRIFT = linger and fade slowly")).build(),
+                                tc);
                     }
                 }
                 break;

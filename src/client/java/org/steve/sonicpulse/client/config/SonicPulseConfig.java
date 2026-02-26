@@ -58,7 +58,7 @@ public class SonicPulseConfig {
     }
 
     public enum BgEffect {
-        OFF, PULSE, AURA, VHS, HEATMAP
+        OFF, PULSE, AURA, VHS, HEATMAP, STARFIELD
     }
 
     public enum PulseIntensity {
@@ -91,6 +91,14 @@ public class SonicPulseConfig {
 
     public enum HeatmapSpread {
         CONFINED, UNBOUND
+    }
+
+    public enum SparkCount {
+        FEW, NORMAL, STORM
+    }
+
+    public enum SparkDecay {
+        SNAP, DRIFT
     }
 
     public enum RibbonLayout {
@@ -150,6 +158,8 @@ public class SonicPulseConfig {
     // FIXED: Added proper Enum prefixes to resolve build errors
     public HeatmapScale heatmapScale = HeatmapScale.FIRE;
     public HeatmapSpread heatmapSpread = HeatmapSpread.CONFINED;
+    public SparkCount sparkCount = SparkCount.NORMAL;
+    public SparkDecay sparkDecay = SparkDecay.DRIFT;
 
     public static final int[] PALETTE = {
             0x00BFFF, 0x00CED1, 0x00FFC6, 0x32CD32, 0x7FFF00, 0xFFD300, 0xFFBF00, 0xFF8C00, 0xFF5F00,
@@ -266,6 +276,16 @@ public class SonicPulseConfig {
 
     public void nextHeatmapSpread() {
         heatmapSpread = HeatmapSpread.values()[(heatmapSpread.ordinal() + 1) % HeatmapSpread.values().length];
+        save();
+    }
+
+    public void nextSparkCount() {
+        sparkCount = SparkCount.values()[(sparkCount.ordinal() + 1) % SparkCount.values().length];
+        save();
+    }
+
+    public void nextSparkDecay() {
+        sparkDecay = SparkDecay.values()[(sparkDecay.ordinal() + 1) % SparkDecay.values().length];
         save();
     }
 

@@ -35,6 +35,17 @@ public class SonicPulseHud {
     private long vhsGlitchEndTime = 0;
     private int vhsGlitchBands = 0;
 
+    // STARFIELD particle state (max 48 particles recycled)
+    private static final int MAX_SPARKS = 48;
+    private final float[] sparkX = new float[MAX_SPARKS];
+    private final float[] sparkY = new float[MAX_SPARKS];
+    private final float[] sparkVX = new float[MAX_SPARKS];
+    private final float[] sparkVY = new float[MAX_SPARKS];
+    private final float[] sparkLife = new float[MAX_SPARKS]; // 0=dead, 1=fresh
+    private int sparkNext = 0;
+    private float sparkBaseline = 0;
+    private long lastSparkTime = 0;
+
     private static final int HSB_LUT_SIZE = 256;
     private static final int[] HSB_LUT = new int[HSB_LUT_SIZE];
     static {
@@ -124,12 +135,7 @@ public class SonicPulseHud {
             case BAR_TRK_LOG -> new int[] { 3, 2, 1 };
         };
         for (int i : seq) {
-            if (i == 1 && cfg.showLogo)
-                activeSlots.add(1);
-            if (i == 2 && cfg.showTrack)
-                activeSlots.add(2);
-            if (i == 3 && cfg.showBars)
-                activeSlots.add(3);
+            activeSlots.add(i);
         }
 
         int ribbonWidth = Math.max(50, (int) ((screenW / scale) * cfg.hudWidth));
@@ -144,18 +150,23 @@ public class SonicPulseHud {
 
         // Clone visualizer data once for the whole frame — shared by effects and bars
         float[] vData = (engine != null) ? engine.getVisualizerData() : null;
+        float bass = 0, spike = 0;
+        if (vData != null && vData.length >= 3) {
+            bass = (vData[0] + vData[1] + vData[2]) / 3.0f;
+            baselineBass += (bass - baselineBass) * 0.05f;
+            spike = Math.max(0, bass - (baselineBass * 0.9f));
+        }
+
         if (vData != null && vData.length >= 16)
-            renderEffects(context, cfg, vData, ribbonWidth);
+            renderEffects(context, cfg, vData, ribbonWidth, bass, spike);
 
         context.fill(0, 34, ribbonWidth, 35, cfg.skin.getBorderColor());
-        renderElements(context, client.textRenderer, cfg, track, engine, vData, ribbonWidth, slotWidth);
+        renderElements(context, client.textRenderer, cfg, track, engine, vData, ribbonWidth, slotWidth, bass, spike);
         context.getMatrices().pop();
     }
 
-    private void renderEffects(DrawContext context, SonicPulseConfig cfg, float[] vData, int ribbonWidth) {
-        float bass = (vData[0] + vData[1] + vData[2]) / 3.0f;
-        baselineBass += (bass - baselineBass) * 0.05f;
-        float spike = Math.max(0, bass - (baselineBass * 0.9f));
+    private void renderEffects(DrawContext context, SonicPulseConfig cfg, float[] vData, int ribbonWidth, float bass,
+            float spike) {
         int centerX = ribbonWidth / 2;
 
         if (cfg.bgEffect == SonicPulseConfig.BgEffect.PULSE) {
@@ -255,11 +266,52 @@ public class SonicPulseHud {
                 context.fill((int) (centerX - (s + 1) * sliceW), 0, (int) (centerX - s * sliceW), 35, color);
                 context.fill((int) (centerX + s * sliceW), 0, (int) (centerX + (s + 1) * sliceW), 35, color);
             }
+        } else if (cfg.bgEffect == SonicPulseConfig.BgEffect.STARFIELD) {
+            sparkBaseline += (bass - sparkBaseline) * 0.05f;
+            float sSpike = Math.max(0, bass - (sparkBaseline * 0.85f));
+            long now = System.currentTimeMillis();
+            // Spawn burst on bass hit (cooldown 80ms to avoid overwhelming)
+            if (sSpike > 0.08f && now - lastSparkTime > 80) {
+                lastSparkTime = now;
+                int count = cfg.sparkCount == SonicPulseConfig.SparkCount.FEW ? 6
+                        : cfg.sparkCount == SonicPulseConfig.SparkCount.STORM ? 24 : 12;
+                float cx = ribbonWidth / 2f, cy = 17f;
+                for (int s = 0; s < count; s++) {
+                    double angle = Math.random() * 2 * Math.PI;
+                    float speed = 0.15f + (float) Math.random() * 0.2f; // Low initial speed
+                    sparkX[sparkNext] = cx; // Fixed center origin
+                    sparkY[sparkNext] = cy;
+                    sparkVX[sparkNext] = (float) Math.cos(angle) * speed;
+                    sparkVY[sparkNext] = (float) Math.sin(angle) * speed * 0.5f; // Flatter vertical
+                    sparkLife[sparkNext] = 1.0f;
+                    sparkNext = (sparkNext + 1) % MAX_SPARKS;
+                }
+            }
+            // Advance and draw each live particle
+            float decay = cfg.sparkDecay == SonicPulseConfig.SparkDecay.SNAP ? 0.08f : 0.02f;
+            int barRgb = cfg.barColor & 0xFFFFFF;
+            for (int s = 0; s < MAX_SPARKS; s++) {
+                if (sparkLife[s] <= 0.01f)
+                    continue;
+                // Perspective effect: Accelerate outwards from center
+                sparkVX[s] *= 1.07f;
+                sparkVY[s] *= 1.07f;
+                sparkX[s] += sparkVX[s];
+                sparkY[s] += sparkVY[s];
+                sparkLife[s] = Math.max(0f, sparkLife[s] - decay);
+
+                int alpha = (int) (sparkLife[s] * 220);
+                int color = (alpha << 24) | barRgb;
+                int px = (int) sparkX[s], py = (int) sparkY[s];
+                if (px >= 0 && px < ribbonWidth && py >= 1 && py < 34)
+                    context.fill(px, py, px + 2, py + 2, color);
+            }
         }
     }
 
     private void renderElements(DrawContext context, TextRenderer textRenderer, SonicPulseConfig cfg, AudioTrack track,
-            SonicPulseEngine engine, float[] vData, int ribbonWidth, int slotWidth) {
+            SonicPulseEngine engine, float[] vData, int ribbonWidth, int slotWidth, float bass,
+            float spike) {
         boolean playing = track != null;
         long now = System.currentTimeMillis(); // cache for marquee and any time comparisons
 
@@ -272,9 +324,8 @@ public class SonicPulseHud {
         for (int i = 0; i < activeSlots.size(); i++) {
             int slotType = activeSlots.get(i);
             int slotCenterX = (i * slotWidth) + (slotWidth / 2);
-            if (slotType == 1) { // LOGO
+            if (slotType == 1 && cfg.showLogo) { // LOGO
                 // Bass-reactive ♫: pulses in barColor, "SONICPULSE " in titleColor
-                float bass = (vData != null && vData.length >= 3) ? (vData[0] + vData[1] + vData[2]) / 3f : 0f;
                 int noteAlpha = Math.min(255, 140 + (int) (bass * 115));
                 int noteColor = (noteAlpha << 24) | (cfg.barColor & 0xFFFFFF);
                 int logoY = playing ? 6 : 14;
@@ -320,7 +371,7 @@ public class SonicPulseHud {
                     context.drawText(textRenderer, cachedTimeSuffix, posX + textRenderer.getWidth(cachedTimeText), 18,
                             0xFFAAAAAA, false);
                 }
-            } else if (slotType == 2 && (playing || (engine != null && engine.isBuffering()))) { // TRACK
+            } else if (slotType == 2 && cfg.showTrack && (playing || (engine != null && engine.isBuffering()))) { // TRACK
                 String baseName = (cfg.currentTitle != null) ? cfg.currentTitle
                         : (track != null ? track.getInfo().title : "Loading...");
 
@@ -366,7 +417,7 @@ public class SonicPulseHud {
                     }
                     context.getMatrices().pop();
                 }
-            } else if (slotType == 3) { // BARS — vData already fetched above, no extra clone
+            } else if (slotType == 3 && cfg.showBars) { // BARS — vData already fetched above, no extra clone
                 int bCount = 32, bW = 4, bS = 1; // doubled to 32 bars, narrower
                 int startX = slotCenterX - ((bCount * (bW + bS) - bS) / 2);
                 int barColorOpaque = cfg.barColor | 0xFF000000;

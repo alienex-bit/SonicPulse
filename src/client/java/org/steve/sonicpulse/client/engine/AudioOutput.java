@@ -222,7 +222,7 @@ public class AudioOutput {
                     }
                     line.write(dataToPlay, 0, dataToPlay.length - (dataToPlay.length % 4));
                     SonicPulseConfig cfg2 = SonicPulseConfig.get();
-                    if (cfg2.hudVisible && cfg2.showBars)
+                    if (cfg2.hudVisible && (cfg2.showBars || cfg2.bgEffect != SonicPulseConfig.BgEffect.OFF))
                         updateAmplitudes(dataToPlay);
                     else
                         Arrays.fill(amplitudes, 0);
