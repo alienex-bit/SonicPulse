@@ -26,6 +26,9 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonParser;
+import java.net.HttpURLConnection;
 
 public class ConfigScreen extends Screen {
     private static final int BOX_WIDTH = 360, BOX_HEIGHT = 220, SIDEBAR_WIDTH = 75, ACTIVE_BORDER = 0xFFFF00FF;
@@ -105,12 +108,17 @@ public class ConfigScreen extends Screen {
             return;
         new Thread(() -> {
             try {
-                URL url = new URI("https://raw.githubusercontent.com/steve-watkins/SonicPulse/main/version.txt")
-                        .toURL();
-                BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream()));
-                String line = reader.readLine();
-                if (line != null && !line.trim().isEmpty()) {
-                    latestVersion = line.trim();
+                URL url = new URI("https://api.modrinth.com/v2/project/sonicpulse/version").toURL();
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("User-Agent", "steve-watkins/sonicpulse/mod-client");
+
+                if (conn.getResponseCode() == 200) {
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                    JsonArray array = JsonParser.parseReader(reader).getAsJsonArray();
+                    if (array.size() > 0) {
+                        latestVersion = array.get(0).getAsJsonObject().get("version_number").getAsString();
+                    }
                 }
                 updateChecked = true;
             } catch (Exception ignored) {
