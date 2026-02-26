@@ -16,15 +16,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class SonicPulseHud {
-    private final float[] floatingPeaks = new float[16];
+    private final float[] floatingPeaks = new float[32]; // expanded for 32-bar visualizer
     private static final Style ROBOTO = Style.EMPTY.withFont(Identifier.of("sonicpulse", "roboto"));
-    private static final Text LOGO_TEXT = Text.empty().append(Text.literal("SONICPULSE ").setStyle(ROBOTO))
-            .append(Text.literal("♫"));
+    private static final Text LOGO_BASE = Text.literal("SONICPULSE ").setStyle(ROBOTO);
 
     private AudioTrack cachedTrack = null;
     private int cachedTagColor = 0xFF00FFFF;
     private long cachedPosSeconds = -1;
-    private Text cachedTimeText = Text.empty(), cachedTagText = Text.empty();
+    private Text cachedTimeText = Text.empty(), cachedTimeSuffix = Text.empty(), cachedTagText = Text.empty();
 
     private String rawTrackNameCache = null, safeTrackNameCache = null, marqueeCache = null, currentScrolledText = "";
     private int marqueeLenCache = 0;
@@ -140,6 +139,8 @@ public class SonicPulseHud {
         context.getMatrices().scale(scale, scale, 1.0f);
         context.getMatrices().translate(((screenW / scale) - ribbonWidth) / 2.0f, 0.0f, 0.0f);
         context.fill(0, 0, ribbonWidth, 35, cfg.skin.getBgColor());
+        // Top + bottom border
+        context.fill(0, 0, ribbonWidth, 1, cfg.skin.getBorderColor());
 
         // Clone visualizer data once for the whole frame — shared by effects and bars
         float[] vData = (engine != null) ? engine.getVisualizerData() : null;
@@ -264,15 +265,23 @@ public class SonicPulseHud {
 
         if (engine != null && engine.isBuffering() && cfg.showBufferingBar) {
             float progress = engine.getBufferProgress();
-            context.fill(0, 34, (int) (ribbonWidth * progress), 35, 0xFF00FFFF);
+            // Draw at y=33 so it sits above the border line rather than overwriting it
+            context.fill(0, 33, (int) (ribbonWidth * progress), 34, 0xFF00FFFF);
         }
 
         for (int i = 0; i < activeSlots.size(); i++) {
             int slotType = activeSlots.get(i);
             int slotCenterX = (i * slotWidth) + (slotWidth / 2);
             if (slotType == 1) { // LOGO
-                context.drawText(textRenderer, LOGO_TEXT, slotCenterX - (textRenderer.getWidth(LOGO_TEXT) / 2),
-                        playing ? 6 : 14, cfg.titleColor | 0xFF000000, false);
+                // Bass-reactive ♫: pulses in barColor, "SONICPULSE " in titleColor
+                float bass = (vData != null && vData.length >= 3) ? (vData[0] + vData[1] + vData[2]) / 3f : 0f;
+                int noteAlpha = Math.min(255, 140 + (int) (bass * 115));
+                int noteColor = (noteAlpha << 24) | (cfg.barColor & 0xFFFFFF);
+                int logoY = playing ? 6 : 14;
+                int logoX = slotCenterX - (textRenderer.getWidth(LOGO_BASE) / 2) - 4;
+                context.drawText(textRenderer, LOGO_BASE, logoX, logoY, cfg.titleColor | 0xFF000000, false);
+                context.drawText(textRenderer, Text.literal("♫"), logoX + textRenderer.getWidth(LOGO_BASE), logoY,
+                        noteColor, false);
                 if (playing) {
                     if (track != cachedTrack) {
                         cachedTrack = track;
@@ -293,14 +302,23 @@ public class SonicPulseHud {
                     long cur = track.getPosition() / 1000;
                     if (cur != cachedPosSeconds) {
                         cachedPosSeconds = cur;
-                        cachedTimeText = track.getInfo().isStream ? style("")
-                                : style(String.format("  %02d:%02d / %02d:%02d", cur / 60, cur % 60,
-                                        (track.getDuration() / 1000) / 60, (track.getDuration() / 1000) % 60));
+                        if (track.getInfo().isStream) {
+                            cachedTimeText = style("");
+                            cachedTimeSuffix = Text.empty();
+                        } else {
+                            cachedTimeText = style(String.format("  %02d:%02d", cur / 60, cur % 60));
+                            cachedTimeSuffix = style(String.format(" / %02d:%02d",
+                                    (track.getDuration() / 1000) / 60, (track.getDuration() / 1000) % 60));
+                        }
                     }
                     int tW = textRenderer.getWidth(cachedTagText);
-                    int subX = slotCenterX - ((tW + textRenderer.getWidth(cachedTimeText)) / 2);
+                    int timeW = textRenderer.getWidth(cachedTimeText) + textRenderer.getWidth(cachedTimeSuffix);
+                    int subX = slotCenterX - ((tW + timeW) / 2);
                     context.drawText(textRenderer, cachedTagText, subX, 18, cachedTagColor, false);
-                    context.drawText(textRenderer, cachedTimeText, subX + tW, 18, 0xFFFFFFFF, false);
+                    int posX = subX + tW;
+                    context.drawText(textRenderer, cachedTimeText, posX, 18, 0xFFFFFFFF, false);
+                    context.drawText(textRenderer, cachedTimeSuffix, posX + textRenderer.getWidth(cachedTimeText), 18,
+                            0xFFAAAAAA, false);
                 }
             } else if (slotType == 2 && (playing || (engine != null && engine.isBuffering()))) { // TRACK
                 String baseName = (cfg.currentTitle != null) ? cfg.currentTitle
@@ -349,18 +367,21 @@ public class SonicPulseHud {
                     context.getMatrices().pop();
                 }
             } else if (slotType == 3) { // BARS — vData already fetched above, no extra clone
-                int bCount = 16, bW = 6, bS = 2;
+                int bCount = 32, bW = 4, bS = 1; // doubled to 32 bars, narrower
                 int startX = slotCenterX - ((bCount * (bW + bS) - bS) / 2);
+                int barColorOpaque = cfg.barColor | 0xFF000000;
+                int barColorDim = (cfg.barColor & 0xFFFFFF) | 0x88000000; // 53% alpha base
                 for (int j = 0; j < bCount; j++) {
                     float amp = (vData != null && vData.length > j) ? vData[j] : 0f;
                     int bH = Math.max((int) (amp * 25), 1);
-                    context.fill(startX + j * (bW + bS), 30 - bH, startX + j * (bW + bS) + bW, 30,
-                            cfg.barColor | 0xFF000000);
+                    int x0 = startX + j * (bW + bS);
+                    // Gradient: bright (opaque barColor) at top, dimmer at base
+                    context.fillGradient(x0, 30 - bH, x0 + bW, 30, barColorOpaque, barColorDim);
                     if (cfg.visStyle == SonicPulseConfig.VisualizerStyle.FLOATING_PEAKS) {
                         floatingPeaks[j] = amp >= floatingPeaks[j] ? amp : Math.max(amp, floatingPeaks[j] - 0.005f);
                         int pH = Math.max((int) (floatingPeaks[j] * 25), 1);
-                        context.fill(startX + j * (bW + bS), 30 - pH - 2, startX + j * (bW + bS) + bW, 30 - pH - 1,
-                                0xFFFFFFFF);
+                        // Peak tinted with titleColor instead of plain white
+                        context.fill(x0, 30 - pH - 2, x0 + bW, 30 - pH - 1, cfg.titleColor | 0xFF000000);
                     }
                 }
             }
