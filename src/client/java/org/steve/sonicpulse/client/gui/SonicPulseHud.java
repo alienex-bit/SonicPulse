@@ -103,7 +103,7 @@ public class SonicPulseHud {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null || client.options.hudHidden)
             return;
-        SonicPulseConfig cfg = SonicPulseConfig.get();
+        SonicPulseConfig cfg = SonicPulseConfig.get(); // fetch once for the whole frame
         if (!cfg.hudVisible || (!isPreview && client.currentScreen != null))
             return;
 
@@ -141,12 +141,13 @@ public class SonicPulseHud {
         context.getMatrices().translate(((screenW / scale) - ribbonWidth) / 2.0f, 0.0f, 0.0f);
         context.fill(0, 0, ribbonWidth, 35, cfg.skin.getBgColor());
 
-        float[] vData = engine != null ? engine.getVisualizerData() : null;
+        // Clone visualizer data once for the whole frame — shared by effects and bars
+        float[] vData = (engine != null) ? engine.getVisualizerData() : null;
         if (vData != null && vData.length >= 16)
             renderEffects(context, cfg, vData, ribbonWidth);
 
         context.fill(0, 34, ribbonWidth, 35, cfg.skin.getBorderColor());
-        renderElements(context, client.textRenderer, cfg, track, ribbonWidth, slotWidth);
+        renderElements(context, client.textRenderer, cfg, track, engine, vData, ribbonWidth, slotWidth);
         context.getMatrices().pop();
     }
 
@@ -257,9 +258,9 @@ public class SonicPulseHud {
     }
 
     private void renderElements(DrawContext context, TextRenderer textRenderer, SonicPulseConfig cfg, AudioTrack track,
-            int ribbonWidth, int slotWidth) {
+            SonicPulseEngine engine, float[] vData, int ribbonWidth, int slotWidth) {
         boolean playing = track != null;
-        SonicPulseEngine engine = SonicPulseClient.getEngine();
+        long now = System.currentTimeMillis(); // cache for marquee and any time comparisons
 
         if (engine != null && engine.isBuffering() && cfg.showBufferingBar) {
             float progress = engine.getBufferProgress();
@@ -331,11 +332,11 @@ public class SonicPulseHud {
                     int sTxtW = (int) (textRenderer.getWidth(safeTrackNameCache) * tScale);
                     context.getMatrices().push();
                     if (sTxtW > maxW) {
-                        if (System.currentTimeMillis() - lastMarqueeUpdate > 100) {
-                            int offset = (int) ((System.currentTimeMillis() / 150) % marqueeLenCache);
+                        if (now - lastMarqueeUpdate > 100) {
+                            int offset = (int) ((now / 150) % marqueeLenCache);
                             currentScrolledText = textRenderer.trimToWidth(marqueeCache.substring(offset),
                                     (int) (maxW / tScale));
-                            lastMarqueeUpdate = System.currentTimeMillis();
+                            lastMarqueeUpdate = now;
                         }
                         context.getMatrices().translate(slotCenterX - (maxW / 2f), 11, 0);
                         context.getMatrices().scale(tScale, tScale, 1f);
@@ -347,8 +348,7 @@ public class SonicPulseHud {
                     }
                     context.getMatrices().pop();
                 }
-            } else if (slotType == 3) { // BARS
-                float[] vData = engine != null ? engine.getVisualizerData() : null;
+            } else if (slotType == 3) { // BARS — vData already fetched above, no extra clone
                 int bCount = 16, bW = 6, bS = 2;
                 int startX = slotCenterX - ((bCount * (bW + bS) - bS) / 2);
                 for (int j = 0; j < bCount; j++) {
