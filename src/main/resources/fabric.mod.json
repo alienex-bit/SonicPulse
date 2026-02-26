@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "sonicpulse",
-  "version": "1.0.0",
+  "version": "${mod_version}",
   "name": "SonicPulse",
   "description": "Professional Audio Streaming and Reactive Visualizer Ribbon.",
   "authors": [
@@ -34,7 +34,7 @@
   ],
   "depends": {
     "fabricloader": ">=0.16.9",
-    "minecraft": "~1.21.1",
+    "minecraft": "~1.21.4",
     "java": ">=21",
     "fabric-api": "*"
   }

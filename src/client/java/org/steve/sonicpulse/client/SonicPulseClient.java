@@ -7,7 +7,8 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.HudLayerRegistrationCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.IdentifiedLayer;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
@@ -20,6 +21,8 @@ import java.nio.file.Path;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.steve.sonicpulse.client.screen.ConfigScreen;
+import org.steve.sonicpulse.client.gui.SonicPulseHud;
+import net.minecraft.util.Identifier;
 
 public class SonicPulseClient implements ClientModInitializer {
     private static SonicPulseEngine engine;
@@ -30,11 +33,15 @@ public class SonicPulseClient implements ClientModInitializer {
     public void onInitializeClient() {
         engine = new SonicPulseEngine();
         setupAssetDirectory();
-        
-        HudRenderCallback.EVENT.register(new org.steve.sonicpulse.client.gui.SonicPulseHud());
-        
-        configKeyBinding = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.sonicpulse.config", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_P, "category.sonicpulse"));
-        
+
+        SonicPulseHud hud = new SonicPulseHud();
+        HudLayerRegistrationCallback.EVENT.register(drawer -> drawer.attachLayerAfter(IdentifiedLayer.EXPERIENCE_LEVEL,
+                Identifier.of("sonicpulse", "hud"),
+                (context, tickCounter) -> hud.render(context, false, 0, 0)));
+
+        configKeyBinding = KeyBindingHelper.registerKeyBinding(
+                new KeyBinding("key.sonicpulse.config", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_P, "category.sonicpulse"));
+
         ClientPlayNetworking.registerGlobalReceiver(PlayUrlPayload.ID, (payload, context) -> {
             String url = payload.url();
             MinecraftClient.getInstance().execute(() -> engine.playTrack(url, url, "Network"));
@@ -42,28 +49,48 @@ public class SonicPulseClient implements ClientModInitializer {
 
         // Disconnect Safety Hook: Kill audio engine when leaving world/server
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
-            if (engine != null) engine.stop();
+            if (engine != null)
+                engine.stop();
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (engine != null) engine.tick();
-            if (configKeyBinding.wasPressed() && client.currentScreen == null) client.setScreen(new ConfigScreen());
+            if (engine != null)
+                engine.tick();
+            if (configKeyBinding.wasPressed() && client.currentScreen == null)
+                client.setScreen(new ConfigScreen());
         });
 
-        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
-            dispatcher.register(ClientCommandManager.literal("sonicpulse").then(ClientCommandManager.literal("test").then(ClientCommandManager.argument("url", StringArgumentType.greedyString()).executes(context -> {
-                engine.playTrack(StringArgumentType.getString(context, "url"), null, "Command");
-                return 1;
-            }))))
-        );
+        ClientCommandRegistrationCallback.EVENT
+                .register(
+                        (dispatcher,
+                                registryAccess) -> dispatcher
+                                        .register(
+                                                ClientCommandManager
+                                                        .literal("sonicpulse").then(
+                                                                ClientCommandManager.literal("test")
+                                                                        .then(ClientCommandManager
+                                                                                .argument("url",
+                                                                                        StringArgumentType
+                                                                                                .greedyString())
+                                                                                .executes(context -> {
+                                                                                    engine.playTrack(StringArgumentType
+                                                                                            .getString(context, "url"),
+                                                                                            null, "Command");
+                                                                                    return 1;
+                                                                                })))));
     }
 
-    public static SonicPulseEngine getEngine() { return engine; }
-    
+    public static SonicPulseEngine getEngine() {
+        return engine;
+    }
+
     private void setupAssetDirectory() {
         try {
             Path dir = MinecraftClient.getInstance().runDirectory.toPath().resolve("sonicpulse").resolve("music");
-            if (!Files.exists(dir)) Files.createDirectories(dir);
-        } catch (Exception e) { LOGGER.error("Failed to create asset directory", e); }
+            if (!Files.exists(dir))
+                Files.createDirectories(dir);
+        } catch (Exception e) {
+            LOGGER.error("Failed to create asset directory", e);
+        }
     }
 }
