@@ -1,0 +1,361 @@
+package org.steve.sonicpulse.client.config;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import net.minecraft.client.Minecraft;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
+
+public class SonicPulseConfig {
+    public enum Skin {
+        DEFAULT(0x88000000, 0xFFFFFFFF, "Default"),
+        TRANSPARENT(0x00000000, 0x44FFFFFF, "Glass"),
+        VCR_OSD(0xFF000044, 0xFFFFFFFF, "VCR OSD"),
+        CYBER_NOIR(0xFF000000, 0xFF00E8FF, "Cyber Noir"),
+        MERMAID(0x9920948B, 0xFFBD93F9, "Mermaid"),
+        NEO_BRUTAL(0xFFBFFF00, 0xFF000000, "Neobrutalist"),
+        SYNTHWAVE(0xDD110033, 0xFFFF00FF, "Synthwave"),
+        TERMINAL(0xFF000000, 0xFF00FF00, "Terminal"),
+        ROYAL_GOLD(0xEE222222, 0xFFFFD700, "Royal Gold"),
+        BLOOD_MOON(0xEE330000, 0xFFDC143C, "Blood Moon"),
+        GLACIER(0xDD001133, 0xFF00FFFF, "Glacier");
+
+        private final int bgColor, borderColor;
+        private final String name;
+
+        Skin(int bg, int border, String name) {
+            this.bgColor = bg;
+            this.borderColor = border;
+            this.name = name;
+        }
+
+        public int getBgColor() {
+            return bgColor;
+        }
+
+        public int getBorderColor() {
+            return borderColor;
+        }
+
+        public String getName() {
+            return name;
+        }
+    }
+
+    public enum SessionMode {
+        NONE, FAVOURITES, HISTORY, LOCAL, RADIO, REMOTE
+    }
+
+    public enum VisualizerStyle {
+        SOLID, FLOATING_PEAKS
+    }
+
+    public enum BgEffect {
+        OFF, PULSE, AURA, VHS, HEATMAP, STARFIELD
+    }
+
+    public enum PulseIntensity {
+        SUBTLE, NORMAL, OVERDRIVE
+    }
+
+    public enum PulseDecay {
+        SNAPPY, FLUID
+    }
+
+    public enum AuraSpeed {
+        CHILL, NORMAL, WARP
+    }
+
+    public enum AuraPalette {
+        RAINBOW, AURORA
+    }
+
+    public enum VhsGlitch {
+        MINOR, HEAVY, CORRUPTED
+    }
+
+    public enum VhsScanlines {
+        FAINT, DARK, OFF
+    }
+
+    public enum HeatmapScale {
+        FIRE, PLASMA, TOXIC
+    }
+
+    public enum HeatmapSpread {
+        CONFINED, UNBOUND
+    }
+
+    public enum SparkCount {
+        FEW, NORMAL, STORM
+    }
+
+    public enum SparkDecay {
+        SNAP, DRIFT
+    }
+
+    public enum RibbonLayout {
+        LOG_TRK_BAR("Logo → Track → Bars"),
+        LOG_BAR_TRK("Logo → Bars → Track"),
+        TRK_LOG_BAR("Track → Logo → Bars"),
+        TRK_BAR_LOG("Track → Bars → Logo"),
+        BAR_LOG_TRK("Bars → Logo → Track"),
+        BAR_TRK_LOG("Bars → Track → Logo");
+
+        private final String displayName;
+
+        RibbonLayout(String name) {
+            this.displayName = name;
+        }
+
+        public String getDisplayName() {
+            return displayName;
+        }
+    }
+
+    /** Increment this when adding new fields so migration can set safe defaults. */
+    public int configVersion = 1;
+
+    public float hudScale = 1.0f;
+    public float hudWidth = 1.0f;
+    public int barColor = 0xFF00BFFF, titleColor = 0xFFFF00FF, volume = 50;
+    public Skin skin = Skin.DEFAULT;
+    public SessionMode activeMode = SessionMode.NONE;
+    public VisualizerStyle visStyle = VisualizerStyle.SOLID;
+    public BgEffect bgEffect = BgEffect.OFF;
+    public RibbonLayout ribbonLayout = RibbonLayout.LOG_TRK_BAR;
+    public String currentTitle = null, lastRadioUrl = "", localMusicPath = "";
+    public List<HistoryEntry> history = new ArrayList<>();
+
+    public String[] radioPresetNames = { "Preset 1", "Preset 2", "Preset 3", "Preset 4" };
+    public String[] radioPresetUrls = { "", "", "", "" };
+
+    public boolean hudVisible = true, showLogo = true, showTrack = true, showBars = true, showTooltips = true;
+
+    public boolean enableStreamBuffering = true;
+    public int streamBufferSeconds = 5;
+    public boolean showBufferingBar = true;
+
+    public float eqBass = 0.0f;
+    public float eqTreble = 0.0f;
+    public float stereoWidth = 1.0f;
+    // New Toggle: Enables Automatic Muffling when head is underwater
+    public boolean underwaterMuffle = true;
+
+    public PulseIntensity pulseIntensity = PulseIntensity.NORMAL;
+    public PulseDecay pulseDecay = PulseDecay.FLUID;
+    public AuraSpeed auraSpeed = AuraSpeed.NORMAL;
+    public AuraPalette auraPalette = AuraPalette.RAINBOW;
+    public VhsGlitch vhsGlitch = VhsGlitch.HEAVY;
+    public VhsScanlines vhsScanlines = VhsScanlines.FAINT;
+    // FIXED: Added proper Enum prefixes to resolve build errors
+    public HeatmapScale heatmapScale = HeatmapScale.FIRE;
+    public HeatmapSpread heatmapSpread = HeatmapSpread.CONFINED;
+    public SparkCount sparkCount = SparkCount.NORMAL;
+    public SparkDecay sparkDecay = SparkDecay.DRIFT;
+
+    public static final int[] PALETTE = {
+            0x00BFFF, 0x00CED1, 0x00FFC6, 0x32CD32, 0x7FFF00, 0xFFD300, 0xFFBF00, 0xFF8C00, 0xFF5F00,
+            0xFF2400, 0xDC143C, 0xFF1493, 0xFF00FF, 0x8A2BE2, 0x6A0DAD, 0x4B0082, 0x008B8B, 0x4682B4, 0xB0FF00
+    };
+    public static final String[] COLOR_NAMES = {
+            "Elec Blue", "Cyan", "Aqua", "Green", "Chart", "Yellow", "Amber", "Orange", "N Orange",
+            "Red", "Crimson", "Pink", "Magenta", "Violet", "Purple", "Indigo", "Teal", "Steel", "Acid"
+    };
+
+    public static class HistoryEntry {
+        public String type, label, url;
+        public boolean favorite = false;
+        public long lastPlayed = 0;
+
+        public HistoryEntry(String t, String l, String u) {
+            type = t;
+            label = l;
+            url = u;
+            this.lastPlayed = System.currentTimeMillis();
+        }
+    }
+
+    public void addHistory(String type, String label, String url) {
+        HistoryEntry entry = history.stream().filter(e -> e.url.equals(url)).findFirst().orElse(null);
+        if (entry != null) {
+            if (!entry.favorite) {
+                entry.label = label;
+            }
+            entry.lastPlayed = System.currentTimeMillis();
+            if (!entry.favorite) {
+                history.remove(entry);
+                history.add(0, entry);
+            }
+        } else {
+            history.add(0, new HistoryEntry(type, label, url));
+        }
+        List<HistoryEntry> nonFavs = history.stream().filter(e -> !e.favorite).collect(Collectors.toList());
+        if (nonFavs.size() > 20) {
+            nonFavs.sort(Comparator.comparingLong(e -> e.lastPlayed));
+            history.remove(nonFavs.get(0));
+        }
+        save();
+    }
+
+    public List<HistoryEntry> getFavoriteHistory() {
+        return history.stream().filter(e -> e.favorite).toList();
+    }
+
+    public void setColor(int c) {
+        barColor = c;
+        save();
+    }
+
+    public void setTitleColor(int c) {
+        titleColor = c;
+        save();
+    }
+
+    public void nextSkin() {
+        skin = Skin.values()[(skin.ordinal() + 1) % Skin.values().length];
+        save();
+    }
+
+    public void nextVisStyle() {
+        visStyle = VisualizerStyle.values()[(visStyle.ordinal() + 1) % VisualizerStyle.values().length];
+        save();
+    }
+
+    public void nextBgEffect() {
+        bgEffect = BgEffect.values()[(bgEffect.ordinal() + 1) % BgEffect.values().length];
+        save();
+    }
+
+    public void nextRibbonLayout() {
+        ribbonLayout = RibbonLayout.values()[(ribbonLayout.ordinal() + 1) % RibbonLayout.values().length];
+        save();
+    }
+
+    public void nextPulseIntensity() {
+        pulseIntensity = PulseIntensity.values()[(pulseIntensity.ordinal() + 1) % PulseIntensity.values().length];
+        save();
+    }
+
+    public void nextPulseDecay() {
+        pulseDecay = PulseDecay.values()[(pulseDecay.ordinal() + 1) % PulseDecay.values().length];
+        save();
+    }
+
+    public void nextAuraSpeed() {
+        auraSpeed = AuraSpeed.values()[(auraSpeed.ordinal() + 1) % AuraSpeed.values().length];
+        save();
+    }
+
+    public void nextAuraPalette() {
+        auraPalette = AuraPalette.values()[(auraPalette.ordinal() + 1) % AuraPalette.values().length];
+        save();
+    }
+
+    public void nextVhsGlitch() {
+        vhsGlitch = VhsGlitch.values()[(vhsGlitch.ordinal() + 1) % VhsGlitch.values().length];
+        save();
+    }
+
+    public void nextVhsScanlines() {
+        vhsScanlines = VhsScanlines.values()[(vhsScanlines.ordinal() + 1) % VhsScanlines.values().length];
+        save();
+    }
+
+    public void nextHeatmapScale() {
+        heatmapScale = HeatmapScale.values()[(heatmapScale.ordinal() + 1) % HeatmapScale.values().length];
+        save();
+    }
+
+    public void nextHeatmapSpread() {
+        heatmapSpread = HeatmapSpread.values()[(heatmapSpread.ordinal() + 1) % HeatmapSpread.values().length];
+        save();
+    }
+
+    public void nextSparkCount() {
+        sparkCount = SparkCount.values()[(sparkCount.ordinal() + 1) % SparkCount.values().length];
+        save();
+    }
+
+    public void nextSparkDecay() {
+        sparkDecay = SparkDecay.values()[(sparkDecay.ordinal() + 1) % SparkDecay.values().length];
+        save();
+    }
+
+    private static final File FILE = new File(Minecraft.getInstance().gameDirectory, "config/sonicpulse.json");
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static SonicPulseConfig instance;
+    private static final ExecutorService SAVE_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "SonicPulse-ConfigSave");
+        t.setDaemon(true);
+        return t;
+    });
+
+    public static SonicPulseConfig get() {
+        if (instance == null) {
+            if (FILE.exists()) {
+                try (FileReader r = new FileReader(FILE)) {
+                    instance = GSON.fromJson(r, SonicPulseConfig.class);
+                } catch (Exception e) {
+                    // Config is corrupted — back it up and start fresh
+                    File backup = new File(FILE.getPath() + ".bak");
+                    backup.delete();
+                    FILE.renameTo(backup);
+                    System.err.println(
+                            "[SonicPulse] Config corrupted, backed up to sonicpulse.json.bak and reset to defaults.");
+                    instance = new SonicPulseConfig();
+                }
+            } else {
+                instance = new SonicPulseConfig();
+            }
+        }
+
+        // --- Null-safety / schema migration ---
+        if (instance.activeMode == null)
+            instance.activeMode = SessionMode.NONE;
+        if (instance.bgEffect == null)
+            instance.bgEffect = BgEffect.OFF;
+        if (instance.skin == null)
+            instance.skin = Skin.DEFAULT;
+        if (instance.visStyle == null)
+            instance.visStyle = VisualizerStyle.SOLID;
+        if (instance.ribbonLayout == null)
+            instance.ribbonLayout = RibbonLayout.LOG_TRK_BAR;
+        if (instance.history == null)
+            instance.history = new ArrayList<>();
+        if (instance.hudWidth == 0.0f)
+            instance.hudWidth = 1.0f;
+        if (instance.radioPresetNames == null)
+            instance.radioPresetNames = new String[] { "Preset 1", "Preset 2", "Preset 3", "Preset 4" };
+        if (instance.radioPresetUrls == null)
+            instance.radioPresetUrls = new String[] { "", "", "", "" };
+        if (instance.streamBufferSeconds == 0)
+            instance.streamBufferSeconds = 5;
+        // Future field migrations go here, gated on configVersion:
+        // if (instance.configVersion < 2) { instance.newField = DEFAULT;
+        // instance.configVersion = 2; }
+
+        return instance;
+    }
+
+    public static void save() {
+        SonicPulseConfig snapshot = get(); // capture reference before thread hop
+        SAVE_EXECUTOR.submit(() -> {
+            try {
+                FILE.getParentFile().mkdirs();
+                try (FileWriter w = new FileWriter(FILE)) {
+                    GSON.toJson(snapshot, w);
+                }
+            } catch (Exception e) {
+                System.err.println("[SonicPulse] Failed to save config: " + e.getMessage());
+            }
+        });
+    }
+}

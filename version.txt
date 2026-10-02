@@ -1,0 +1,37 @@
+SonicPulse Version History
+==========================
+
+Current Version: 1.1.0
+----------------------
+Target Minecraft: 26.3 ("Wilderness Bound")
+Fabric Loader:    >=0.19.5
+Fabric API:       0.161.0+26.3
+Java Version:     25
+Release Date:     October 2026
+
+Changes & Improvements:
+- Migrated codebase to Minecraft 26.3 and official Mojang mappings.
+- Upgraded build toolchain to Java 25 and Gradle 9.8.0 with Fabric Loom 1.18.2.
+- Migrated HUD rendering from deprecated DrawContext to GuiGraphicsExtractor and JOML Matrix3x2fStack.
+- Modernized HUD registration to use HudElementRegistry.attachElementAfter(VanillaHudElements.CHAT, ...).
+- Migrated ConfigScreen widgets to Button, EditBox, and AbstractSliderButton.
+- Updated network payload system to CustomPacketPayload with Identifier.fromNamespaceAndPath.
+- Updated sound engine hooks (player.isUnderWater(), SoundManager.stop()).
+- Bundled full LavaPlayer (2.2.3), YouTube source (1.17.0), and all transitive runtime dependencies into nested Jar-in-Jar packages.
+- Updated ModMenu integration to 22.0.0-alpha.1.
+
+
+Previous Version: 1.0.0
+-----------------------
+Target Minecraft: 1.21.4
+Fabric Loader:    >=0.16.9
+Fabric API:       0.119.4+1.21.4
+Java Version:     21
+Release Date:     December 2024 / January 2025
+
+Initial Release:
+- Professional audio streaming and reactive visualizer ribbon.
+- Remote audio playback powered by LavaPlayer and YouTube source provider.
+- In-game Config Screen with customizable color palettes, themes, and layouts.
+- Real-time audio DSP pipeline with EQ, stereo widening, and underwater muffling.
+- ModMenu integration and custom keybinding support.

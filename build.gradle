@@ -1,0 +1,143 @@
+import java.util.Properties
+
+plugins {
+    id 'fabric-loom' version '1.18.2'
+    id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+loom {
+    splitEnvironmentSourceSets()
+
+    mods {
+        "sonicpulse" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+}
+
+fabricApi {
+    configureDataGeneration {
+        client = true
+    }
+}
+
+repositories {
+    maven { url = 'https://maven.lavalink.dev/releases' }
+    maven { url = 'https://jitpack.io' }
+    maven { url = 'https://maven.terraformersmc.com/' }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    implementation "dev.arbjerg:lavaplayer:2.2.3"
+    include "dev.arbjerg:lavaplayer:2.2.3"
+    include "dev.arbjerg:lavaplayer-natives:2.2.3"
+    include "dev.arbjerg:lava-common:2.2.3"
+
+    implementation "dev.lavalink.youtube:v2:1.18.2"
+    include "dev.lavalink.youtube:v2:1.18.2"
+    include "dev.lavalink.youtube:common:1.18.2"
+
+    include "org.mozilla:rhino-engine:1.7.15"
+    include "org.mozilla:rhino:1.7.15"
+    include "com.grack:nanojson:1.7"
+    include "org.jsoup:jsoup:1.16.1"
+    include "net.iharder:base64:2.3.9"
+    include "org.json:json:20240303"
+    include "org.apache.httpcomponents:httpclient:4.5.14"
+    include "org.apache.httpcomponents:httpcore:4.4.16"
+    include "commons-logging:commons-logging:1.2"
+    include "com.fasterxml.jackson.core:jackson-core:2.15.2"
+    include "com.fasterxml.jackson.core:jackson-databind:2.15.2"
+    include "com.fasterxml.jackson.core:jackson-annotations:2.15.2"
+
+    implementation 'org.lwjgl:lwjgl-openal:3.3.1'
+    runtimeOnly 'org.lwjgl:lwjgl-openal:3.3.1:natives-windows'
+
+    implementation 'org.apache.logging.log4j:log4j-core:2.20.0'
+    implementation 'org.apache.logging.log4j:log4j-api:2.20.0'
+
+    compileOnly "com.terraformersmc:modmenu:22.0.0-alpha.1"
+}
+
+processResources {
+    inputs.property "version", project.version
+    inputs.property "mod_version", project.mod_version
+    inputs.property "minecraft_version", project.minecraft_version
+    inputs.property "loader_version", project.loader_version
+    filteringCharset = "UTF-8"
+
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version,
+                "mod_version": project.mod_version,
+                "minecraft_version": project.minecraft_version,
+                "loader_version": project.loader_version
+    }
+    
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+}
+
+def targetJavaVersion = 25
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = "UTF-8"
+    it.options.release.set(targetJavaVersion)
+    it.options.compilerArgs << '-Xlint:deprecation'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(targetJavaVersion)
+    }
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
+sourcesJar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+jar {
+    from("LICENSE") {
+        rename { "${it}_${project.archives_base_name}" }
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+publishing {
+    publications {
+        create("mavenJava", MavenPublication) {
+            artifactId = project.archives_base_name
+            from components.java
+        }
+    }
+}
+
+tasks.register("bumpVersion") {
+    doLast {
+        def props = new java.util.Properties()
+        file('gradle.properties').withInputStream {
+            props.load(it)
+        }
+        def version = props['mod_version']
+        def (major, minor, patch) = version.tokenize('.')
+        patch = (patch as int) + 1
+      
+        props['mod_version'] = "${major}.${minor}.${patch}"
+        file('gradle.properties').withOutputStream {
+            props.store(it, null)
+        }
+        println "Version bumped to ${props['mod_version']}"
+    }
+}

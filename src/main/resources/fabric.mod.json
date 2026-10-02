@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "sonicpulse",
+  "version": "${mod_version}",
+  "name": "SonicPulse",
+  "description": "Professional Audio Streaming and Reactive Visualizer Ribbon.",
+  "authors": [
+    "Steve Watkins"
+  ],
+  "contact": {
+    "homepage": "https://modrinth.com/mod/sonicpulse",
+    "sources": "https://github.com/steve-watkins/SonicPulse"
+  },
+  "license": "MIT",
+  "icon": "assets/sonicpulse/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "org.steve.sonicpulse.SonicPulse"
+    ],
+    "client": [
+      "org.steve.sonicpulse.client.SonicPulseClient"
+    ],
+    "modmenu": [
+      "org.steve.sonicpulse.client.modmenu.SonicPulseModMenu"
+    ]
+  },
+  "mixins": [
+    "sonicpulse.mixins.json",
+    {
+      "config": "sonicpulse.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "minecraft": "~26.3",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}
