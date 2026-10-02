@@ -15,6 +15,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Util;
+import net.minecraft.client.renderer.RenderPipelines;
 import org.steve.sonicpulse.client.SonicPulseClient;
 import org.steve.sonicpulse.client.config.SonicPulseConfig;
 import org.steve.sonicpulse.client.gui.SonicPulseHud;
@@ -1022,8 +1023,8 @@ public class ConfigScreen extends Screen {
             context.fill(qrX - 3, qrY - 3, qrX + qrSize + 3, qrY + qrSize + 3, 0xFFFFFFFF);
             // Thin accent border
             context.outline(qrX - 4, qrY - 4, qrSize + 8, qrSize + 8, PASTEL[8]);
-            // Blit QR code texture: u0, v0, u1, v1
-            context.blit(QR_CODE, qrX, qrY, qrX + qrSize, qrY + qrSize, 0.0f, 0.0f, 1.0f, 1.0f);
+            // Blit QR texture via GUI_TEXTURED pipeline: (pipeline, id, x, y, u, v, w, h, texW, texH)
+            context.blit(RenderPipelines.GUI_TEXTURED, QR_CODE, qrX, qrY, 0.0f, 0.0f, qrSize, qrSize, qrSize, qrSize);
 
             if (config.showTooltips && mx >= qrX - 3 && mx <= qrX + qrSize + 3 && my >= qrY - 3
                     && my <= qrY + qrSize + 3) {
