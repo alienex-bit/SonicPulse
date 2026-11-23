@@ -9,19 +9,25 @@ import javax.sound.sampled.*;
 import java.util.Arrays;
 
 public class AudioOutput {
+    private static final float SQRT2 = (float) Math.sqrt(2.0);
+    private static final int SAMPLE_RATE = 48000;
+    private static final int HARDWARE_BUFFER_SIZE = SAMPLE_RATE * 4;
+    private static final int MAX_CONSECUTIVE_ERRORS = 5;
+
     private final AudioPlayer player;
     private SourceDataLine line;
-    private boolean running = false;
+    private volatile boolean running = false;
+    private volatile boolean playerSubmerged = false;
+    private volatile float minecraftVolume = 1.0f;
+    private volatile boolean resetFiltersPending = false;
+    private boolean wasMuffled = false;
     private Thread thread;
     private volatile float[] amplitudes = new float[32];
+    private final float[] bandAverages = new float[32];
     private float maxPeak = 1000000f;
 
     private final float[] realBuffer = new float[512];
     private final float[] imagBuffer = new float[512];
-
-    private long lastFrameTime = System.currentTimeMillis();
-    private static final int SAMPLE_RATE = 48000;
-    private static final int HARDWARE_BUFFER_SIZE = SAMPLE_RATE * 4;
 
     // BIQUAD FILTER STATES
     private float b0, b1, b2, a1, a2;
@@ -39,23 +45,48 @@ public class AudioOutput {
         return amplitudes.clone();
     }
 
-    public void start() {
-        if (running)
-            return;
-        try {
-            ensureLineOpen();
-            running = true;
-            thread = new Thread(this::runAudioLoop, "SonicPulse-Audio-DSP");
-            thread.setDaemon(true);
-            thread.start();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+    public void setPlayerSubmerged(boolean submerged) {
+        this.playerSubmerged = submerged;
     }
 
-    private void ensureLineOpen() throws LineUnavailableException {
+    public void setMinecraftVolume(float volume) {
+        this.minecraftVolume = Math.max(0.0f, Math.min(1.0f, volume));
+    }
+
+    public void resetFilters() {
+        this.resetFiltersPending = true;
+    }
+
+    private void clearAllFilterState() {
+        x1L = x2L = y1L = y2L = x1R = x2R = y1R = y2R = 0f;
+        tx1L = tx2L = ty1L = ty2L = tx1R = tx2R = ty1R = ty2R = 0f;
+        clearMuffleFilterState();
+        wasMuffled = false;
+    }
+
+    private void clearMuffleFilterState() {
+        mx1L = mx2L = my1L = my2L = mx1R = mx2R = my1R = my2R = 0f;
+    }
+
+    public synchronized void start() {
+        if (running && thread != null && thread.isAlive()) {
+            return;
+        }
+        running = true;
+        thread = new Thread(this::runAudioLoop, "SonicPulse-Audio-DSP");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private synchronized void ensureLineOpen() throws LineUnavailableException {
+        if (!running) {
+            return;
+        }
         if (line == null || !line.isOpen()) {
-            Minecraft.getInstance().getSoundManager().stop();
+            Minecraft client = Minecraft.getInstance();
+            if (client != null) {
+                client.execute(() -> client.getSoundManager().stop());
+            }
             AudioFormat format = new AudioFormat(SAMPLE_RATE, 16, 2, true, false);
             DataLine.Info info = new DataLine.Info(SourceDataLine.class, format);
             line = (SourceDataLine) AudioSystem.getLine(info);
@@ -64,14 +95,22 @@ public class AudioOutput {
         }
     }
 
-    private void updateFilterCoefficients() {
+    private synchronized void closeLine() {
+        if (line != null) {
+            try {
+                line.stop();
+                line.close();
+            } catch (Exception ignored) {
+            }
+            line = null;
+        }
+    }
+
+    private void updateFilterCoefficients(boolean submerged) {
         SonicPulseConfig cfg = SonicPulseConfig.get();
         setupLowShelf(150, cfg.eqBass * 15.0f);
         setupHighShelf(4000, cfg.eqTreble * 15.0f);
 
-        // NEW Logic: Only apply if toggle is ENABLED AND player is actually UNDERWATER
-        boolean submerged = Minecraft.getInstance().player != null
-                && Minecraft.getInstance().player.isUnderWater();
         if (cfg.underwaterMuffle && submerged) {
             setupLowPass(400, 0.707f);
         }
@@ -82,13 +121,15 @@ public class AudioOutput {
         float omega = (float) (2 * Math.PI * freq / SAMPLE_RATE);
         float sn = (float) Math.sin(omega);
         float cs = (float) Math.cos(omega);
-        float alpha = sn / 2 * (float) Math.sqrt((A + 1 / A) * (1 / 1.0f - 1) + 2);
-        b0 = A * ((A + 1) - (A - 1) * cs + 2 * (float) Math.sqrt(A) * alpha);
+        // Shelf slope S = 1 simplification: alpha = sin(omega) / 2 * sqrt(2)
+        float alpha = (sn * 0.5f) * SQRT2;
+        float sqrtA2Alpha = 2 * (float) Math.sqrt(A) * alpha;
+        b0 = A * ((A + 1) - (A - 1) * cs + sqrtA2Alpha);
         b1 = 2 * A * ((A - 1) - (A + 1) * cs);
-        b2 = A * ((A + 1) - (A - 1) * cs - 2 * (float) Math.sqrt(A) * alpha);
-        float a0 = (A + 1) + (A - 1) * cs + 2 * (float) Math.sqrt(A) * alpha;
+        b2 = A * ((A + 1) - (A - 1) * cs - sqrtA2Alpha);
+        float a0 = (A + 1) + (A - 1) * cs + sqrtA2Alpha;
         a1 = -2 * ((A - 1) + (A + 1) * cs);
-        a2 = (A + 1) + (A - 1) * cs - 2 * (float) Math.sqrt(A) * alpha;
+        a2 = (A + 1) + (A - 1) * cs - sqrtA2Alpha;
         b0 /= a0;
         b1 /= a0;
         b2 /= a0;
@@ -101,13 +142,15 @@ public class AudioOutput {
         float omega = (float) (2 * Math.PI * freq / SAMPLE_RATE);
         float sn = (float) Math.sin(omega);
         float cs = (float) Math.cos(omega);
-        float alpha = sn / 2 * (float) Math.sqrt((A + 1 / A) * (1 / 1.0f - 1) + 2);
-        t_b0 = A * ((A + 1) + (A - 1) * cs + 2 * (float) Math.sqrt(A) * alpha);
+        // Shelf slope S = 1 simplification: alpha = sin(omega) / 2 * sqrt(2)
+        float alpha = (sn * 0.5f) * SQRT2;
+        float sqrtA2Alpha = 2 * (float) Math.sqrt(A) * alpha;
+        t_b0 = A * ((A + 1) + (A - 1) * cs + sqrtA2Alpha);
         t_b1 = -2 * A * ((A - 1) + (A + 1) * cs);
-        t_b2 = A * ((A + 1) + (A - 1) * cs - 2 * (float) Math.sqrt(A) * alpha);
-        float ta0 = (A + 1) - (A - 1) * cs + 2 * (float) Math.sqrt(A) * alpha;
+        t_b2 = A * ((A + 1) + (A - 1) * cs - sqrtA2Alpha);
+        float ta0 = (A + 1) - (A - 1) * cs + sqrtA2Alpha;
         t_a1 = 2 * ((A - 1) - (A + 1) * cs);
-        t_a2 = (A + 1) - (A - 1) * cs - 2 * (float) Math.sqrt(A) * alpha;
+        t_a2 = (A + 1) - (A - 1) * cs - sqrtA2Alpha;
         t_b0 /= ta0;
         t_b1 /= ta0;
         t_b2 /= ta0;
@@ -134,118 +177,170 @@ public class AudioOutput {
     }
 
     private void runAudioLoop() {
-        while (running) {
-            try {
-                SonicPulseEngine engine = SonicPulseClient.getEngine();
-                AudioFrame frame = player.provide();
-                byte[] dataToPlay = null;
+        int consecutiveErrors = 0;
+        try {
+            while (running) {
+                try {
+                    SonicPulseEngine engine = SonicPulseClient.getEngine();
+                    AudioFrame frame = player.provide();
+                    byte[] dataToPlay = null;
 
-                if (frame != null) {
-                    lastFrameTime = System.currentTimeMillis();
-                    if (engine != null && engine.doesTrackUseBuffer()) {
-                        engine.pushFrame(frame.getData());
-                        if (!engine.isBuffering())
-                            dataToPlay = engine.popFrame();
-                    } else {
-                        dataToPlay = frame.getData();
+                    if (frame != null) {
+                        if (engine != null && engine.doesTrackUseBuffer()) {
+                            engine.pushFrame(frame.getData());
+                            if (!engine.isBuffering())
+                                dataToPlay = engine.popFrame();
+                        } else {
+                            dataToPlay = frame.getData();
+                        }
+                    } else if (engine != null && engine.doesTrackUseBuffer() && !engine.isBuffering()) {
+                        dataToPlay = engine.popFrame();
                     }
-                } else if (engine != null && engine.doesTrackUseBuffer() && !engine.isBuffering()) {
-                    dataToPlay = engine.popFrame();
-                }
 
-                if (dataToPlay != null) {
-                    ensureLineOpen();
-                    updateFilterCoefficients();
-                    SonicPulseConfig cfg = SonicPulseConfig.get();
-
-                    // Master Condition: Toggle ON + In Water
-                    boolean actuallyMuffle = cfg.underwaterMuffle && Minecraft.getInstance().player != null
-                            && Minecraft.getInstance().player.isUnderWater();
-
-                    for (int i = 0; i < dataToPlay.length; i += 4) {
-                        float left = (short) ((dataToPlay[i + 1] << 8) | (dataToPlay[i] & 0xFF));
-                        float right = (short) ((dataToPlay[i + 3] << 8) | (dataToPlay[i + 2] & 0xFF));
-
-                        // 1. EQ
-                        float yL = b0 * left + b1 * x1L + b2 * x2L - a1 * y1L - a2 * y2L;
-                        x2L = x1L;
-                        x1L = left;
-                        y2L = y1L;
-                        y1L = yL;
-                        float yR = b0 * right + b1 * x1R + b2 * x2R - a1 * y1R - a2 * y2R;
-                        x2R = x1R;
-                        x1R = right;
-                        y2R = y1R;
-                        y1R = yR;
-
-                        float tyL = t_b0 * yL + t_b1 * tx1L + t_b2 * tx2L - t_a1 * ty1L - t_a2 * ty2L;
-                        tx2L = tx1L;
-                        tx1L = yL;
-                        ty2L = ty1L;
-                        ty1L = tyL;
-                        float tyR = t_b0 * yR + t_b1 * tx1R + t_b2 * tx2R - t_a1 * ty1R - t_a2 * ty2R;
-                        tx2R = tx1R;
-                        tx1R = yR;
-                        ty2R = ty1R;
-                        ty1R = tyR;
-
-                        // 2. Conditional Muffle (Automatic)
-                        if (actuallyMuffle) {
-                            float myL = m_b0 * tyL + m_b1 * mx1L + m_b2 * mx2L - m_a1 * my1L - m_a2 * my2L;
-                            mx2L = mx1L;
-                            mx1L = tyL;
-                            my2L = my1L;
-                            my1L = myL;
-                            tyL = myL;
-                            float myR = m_b0 * tyR + m_b1 * mx1R + m_b2 * mx2R - m_a1 * my1R - m_a2 * my2R;
-                            mx2R = mx1R;
-                            mx1R = tyR;
-                            my2R = my1R;
-                            my1R = myR;
-                            tyR = myR;
+                    if (dataToPlay != null) {
+                        ensureLineOpen();
+                        SourceDataLine activeLine = this.line;
+                        if (!running || activeLine == null) {
+                            break;
                         }
 
-                        // 3. Widening
-                        float mid = (tyL + tyR) * 0.5f;
-                        float side = (tyR - tyL) * 0.5f;
-                        side *= cfg.stereoWidth;
+                        if (resetFiltersPending) {
+                            clearAllFilterState();
+                            resetFiltersPending = false;
+                        }
 
-                        float outL_f = mid - side;
-                        float outR_f = mid + side;
-                        short outL = (short) Math.max(-32768, Math.min(32767, outL_f));
-                        short outR = (short) Math.max(-32768, Math.min(32767, outR_f));
+                        SonicPulseConfig cfg = SonicPulseConfig.get();
+                        boolean submerged = this.playerSubmerged;
+                        updateFilterCoefficients(submerged);
 
-                        dataToPlay[i] = (byte) (outL & 0xFF);
-                        dataToPlay[i + 1] = (byte) ((outL >> 8) & 0xFF);
-                        dataToPlay[i + 2] = (byte) (outR & 0xFF);
-                        dataToPlay[i + 3] = (byte) ((outR >> 8) & 0xFF);
-                    }
-                    line.write(dataToPlay, 0, dataToPlay.length - (dataToPlay.length % 4));
-                    SonicPulseConfig cfg2 = SonicPulseConfig.get();
-                    if (cfg2.hudVisible && (cfg2.showBars || cfg2.bgEffect != SonicPulseConfig.BgEffect.OFF))
-                        updateAmplitudes(dataToPlay);
-                    else
+                        boolean actuallyMuffle = cfg.underwaterMuffle && submerged;
+                        if (actuallyMuffle != wasMuffled) {
+                            clearMuffleFilterState();
+                            wasMuffled = actuallyMuffle;
+                        }
+
+                        // Combine Minecraft's Master * Music volume with SonicPulse's own volume setting (0-100%)
+                        float gain = this.minecraftVolume * Math.max(0.0f, Math.min(1.0f, cfg.volume / 100.0f));
+
+                        for (int i = 0; i < dataToPlay.length; i += 4) {
+                            float left = (short) ((dataToPlay[i + 1] << 8) | (dataToPlay[i] & 0xFF));
+                            float right = (short) ((dataToPlay[i + 3] << 8) | (dataToPlay[i + 2] & 0xFF));
+
+                            // 1. EQ
+                            float yL = b0 * left + b1 * x1L + b2 * x2L - a1 * y1L - a2 * y2L;
+                            x2L = x1L;
+                            x1L = left;
+                            y2L = y1L;
+                            y1L = yL;
+                            float yR = b0 * right + b1 * x1R + b2 * x2R - a1 * y1R - a2 * y2R;
+                            x2R = x1R;
+                            x1R = right;
+                            y2R = y1R;
+                            y1R = yR;
+
+                            float tyL = t_b0 * yL + t_b1 * tx1L + t_b2 * tx2L - t_a1 * ty1L - t_a2 * ty2L;
+                            tx2L = tx1L;
+                            tx1L = yL;
+                            ty2L = ty1L;
+                            ty1L = tyL;
+                            float tyR = t_b0 * yR + t_b1 * tx1R + t_b2 * tx2R - t_a1 * ty1R - t_a2 * ty2R;
+                            tx2R = tx1R;
+                            tx1R = yR;
+                            ty2R = ty1R;
+                            ty1R = tyR;
+
+                            // 2. Conditional Muffle (Automatic)
+                            if (actuallyMuffle) {
+                                float myL = m_b0 * tyL + m_b1 * mx1L + m_b2 * mx2L - m_a1 * my1L - m_a2 * my2L;
+                                mx2L = mx1L;
+                                mx1L = tyL;
+                                my2L = my1L;
+                                my1L = myL;
+                                tyL = myL;
+                                float myR = m_b0 * tyR + m_b1 * mx1R + m_b2 * mx2R - m_a1 * my1R - m_a2 * my2R;
+                                mx2R = mx1R;
+                                mx1R = tyR;
+                                my2R = my1R;
+                                my1R = myR;
+                                tyR = myR;
+                            }
+
+                            // 3. Widening & Volume Gain
+                            float mid = (tyL + tyR) * 0.5f;
+                            float side = (tyR - tyL) * 0.5f;
+                            side *= cfg.stereoWidth;
+
+                            float outL_f = (mid - side) * gain;
+                            float outR_f = (mid + side) * gain;
+                            short outL = (short) Math.max(-32768, Math.min(32767, outL_f));
+                            short outR = (short) Math.max(-32768, Math.min(32767, outR_f));
+
+                            dataToPlay[i] = (byte) (outL & 0xFF);
+                            dataToPlay[i + 1] = (byte) ((outL >> 8) & 0xFF);
+                            dataToPlay[i + 2] = (byte) (outR & 0xFF);
+                            dataToPlay[i + 3] = (byte) ((outR >> 8) & 0xFF);
+                        }
+                        activeLine.write(dataToPlay, 0, dataToPlay.length - (dataToPlay.length % 4));
+                        consecutiveErrors = 0;
+
+                        if (cfg.hudVisible && (cfg.showBars || cfg.bgEffect != SonicPulseConfig.BgEffect.OFF))
+                            updateAmplitudes(dataToPlay, gain);
+                        else
+                            Arrays.fill(amplitudes, 0);
+                    } else {
                         Arrays.fill(amplitudes, 0);
-                } else {
-                    Arrays.fill(amplitudes, 0);
-                    Thread.sleep(10);
+                        Thread.sleep(10);
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                } catch (Exception e) {
+                    consecutiveErrors++;
+                    SonicPulseClient.LOGGER.error("Audio output error ({}/{}): {}", consecutiveErrors,
+                            MAX_CONSECUTIVE_ERRORS, e.getMessage());
+                    if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+                        SonicPulseClient.LOGGER.error("Stopping audio output loop after {} consecutive failures.",
+                                MAX_CONSECUTIVE_ERRORS);
+                        running = false;
+                        break;
+                    }
+                    try {
+                        Thread.sleep(250L * consecutiveErrors);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
             }
+        } finally {
+            closeLine();
+            Arrays.fill(amplitudes, 0);
         }
     }
 
-    public void stop() {
+    public synchronized void stop() {
         running = false;
-        if (line != null) {
-            line.stop();
-            line.close();
+        Thread t = this.thread;
+        this.thread = null;
+        if (t != null) {
+            t.interrupt();
+            if (t != Thread.currentThread()) {
+                try {
+                    t.join(500);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
         }
+        closeLine();
         Arrays.fill(amplitudes, 0);
     }
 
-    private void updateAmplitudes(byte[] data) {
+    private void updateAmplitudes(byte[] data, float gain) {
+        if (gain <= 0.001f) {
+            Arrays.fill(amplitudes, 0);
+            return;
+        }
         int n = 512;
         if (data.length < n * 4)
             return;
@@ -299,10 +394,14 @@ public class AudioOutput {
             for (int j = startBin; j < endBin && j < n / 2; j++)
                 sum += (float) Math.sqrt(realBuffer[j] * realBuffer[j] + imagBuffer[j] * imagBuffer[j]);
             float avg = sum / (endBin - startBin);
+            bandAverages[i] = avg;
             if (avg > currentMax)
                 currentMax = avg;
-            maxPeak = maxPeak * 0.99f + Math.max(currentMax, 500000f) * 0.01f;
-            float val = (avg * (1.0f + (i * 0.15f))) / (maxPeak * 0.8f);
+        }
+        // Update peak envelope once per frame rather than once per band (scaled with gain so quiet playback stays responsive)
+        maxPeak = maxPeak * 0.99f + Math.max(currentMax, 500000f * gain) * 0.01f;
+        for (int i = 0; i < 32; i++) {
+            float val = (bandAverages[i] * (1.0f + (i * 0.15f))) / (maxPeak * 0.8f);
             if (val > amplitudes[i])
                 amplitudes[i] = Math.min(1f, val);
             else

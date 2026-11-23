@@ -18,30 +18,39 @@ import dev.lavalink.youtube.clients.ClientConfig;
 import dev.lavalink.youtube.clients.ClientOptions;
 import dev.lavalink.youtube.clients.Music;
 import dev.lavalink.youtube.clients.TvHtml5Simply;
+import net.minecraft.client.Minecraft;
+import net.minecraft.sounds.SoundSource;
 import org.steve.sonicpulse.client.SonicPulseClient;
 import org.steve.sonicpulse.client.config.SonicPulseConfig;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.stream.Collectors;
 
 public class SonicPulseEngine {
     private final DefaultAudioPlayerManager manager = new DefaultAudioPlayerManager();
     private final AudioPlayer player;
     private final AudioOutput output;
-    private boolean pending = false;
+    private volatile boolean pending = false;
     private final LinkedBlockingQueue<byte[]> buffer = new LinkedBlockingQueue<>();
-    private boolean buffering = false;
-    private boolean trackUsesBuffer = false;
-    private int bufferGoal = 0;
+    private final Queue<AudioTrack> playlistQueue = new ConcurrentLinkedQueue<>();
+    private volatile boolean buffering = false;
+    private volatile boolean trackUsesBuffer = false;
+    private volatile int bufferGoal = 0;
+    private volatile boolean trackEnded = false;
 
     public SonicPulseEngine() {
         manager.getConfiguration().setOutputFormat(StandardAudioDataFormats.COMMON_PCM_S16_LE);
 
         try {
+            // Pinned Android client version to work around YouTube's playback restrictions;
+            // may need bumping when YouTube deprecates older Android client versions.
             Android.CLIENT_VERSION = "21.02.35";
             Android.BASE_CONFIG = new ClientConfig()
                     .withUserAgent(String.format("com.google.android.youtube/%s (Linux; U; Android %s) gzip",
@@ -78,107 +87,85 @@ public class SonicPulseEngine {
     }
 
     public void playTrack(String url, String label, String type) {
+        playTrack(url, label, type, true);
+    }
+
+    private void playTrack(String url, String label, String type, boolean clearExistingBuffer) {
         pending = true;
+        trackEnded = false;
         trackUsesBuffer = SonicPulseConfig.get().enableStreamBuffering && !"Local".equalsIgnoreCase(type);
-        buffering = trackUsesBuffer;
         bufferGoal = SonicPulseConfig.get().streamBufferSeconds * 50;
-        buffer.clear();
-        output.start();
-        SonicPulseConfig.HistoryEntry savedFav = SonicPulseConfig.get().history.stream()
-                .filter(e -> e.url.equals(url) && e.favorite).findFirst().orElse(null);
-        String finalLabel = (savedFav != null) ? savedFav.label : ((label != null && !label.isEmpty()) ? label : url);
-        if (finalLabel.equals(url) && savedFav == null) {
-            if (url.contains("/") || url.contains("\\"))
-                finalLabel = url.substring(Math.max(url.lastIndexOf("/"), url.lastIndexOf("\\")) + 1);
+        if (clearExistingBuffer) {
+            playlistQueue.clear();
+            buffer.clear();
+            buffering = trackUsesBuffer;
+            output.resetFilters();
+        } else {
+            // Preserve buffered tail frames of the previous track on auto-advance
+            buffering = trackUsesBuffer && buffer.isEmpty();
         }
-        SonicPulseConfig.get().currentTitle = finalLabel;
-        SonicPulseConfig.get().addHistory(type, finalLabel, url);
-        manager.loadItem(url, new TrackLoadHandler(player, this));
+        output.start();
+        manager.loadItem(url, new TrackLoadHandler(player, this, url, label, type));
+    }
+
+    public void enqueuePlaylist(List<AudioTrack> tracks) {
+        playlistQueue.clear();
+        if (tracks != null && tracks.size() > 1) {
+            for (int i = 1; i < tracks.size(); i++) {
+                playlistQueue.offer(tracks.get(i));
+            }
+        }
     }
 
     private class TrackScheduler extends AudioEventAdapter {
         @Override
         public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason) {
-            if (endReason.mayStartNext)
-                playNextInList(track);
+            trackEnded = true;
+            buffering = false;
+            if (endReason.mayStartNext) {
+                AudioTrack queued = playlistQueue.poll();
+                if (queued != null) {
+                    trackEnded = false;
+                    player.playTrack(queued);
+                    String title = TrackLoadHandler.resolveDisplayTitle(queued, null, null);
+                    SonicPulseConfig.get().currentTitle = title;
+                    SonicPulseConfig.get().addHistory("Playlist", title, queued.getInfo().uri);
+                } else {
+                    playNextInList(track, false);
+                }
+            }
         }
 
         @Override
-        public void onTrackException(AudioPlayer player, AudioTrack track, com.sedmelluq.discord.lavaplayer.tools.FriendlyException exception) {
+        public void onTrackException(AudioPlayer player, AudioTrack track,
+                com.sedmelluq.discord.lavaplayer.tools.FriendlyException exception) {
             SonicPulseClient.LOGGER.error("Track exception during playback: {}", exception.getMessage(), exception);
+            trackEnded = true;
             clearBuffering();
             clearPending();
+        }
+
+        @Override
+        public void onTrackStuck(AudioPlayer player, AudioTrack track, long thresholdMs) {
+            SonicPulseClient.LOGGER.warn("Track stuck for {}ms: {}", thresholdMs, track.getInfo().title);
+            trackEnded = true;
+            buffering = false;
         }
     }
 
     public void playNextInList(AudioTrack endingTrack) {
-        String curUri = endingTrack != null ? endingTrack.getInfo().uri : null;
-        SonicPulseConfig config = SonicPulseConfig.get();
-        if (config.activeMode == SonicPulseConfig.SessionMode.FAVOURITES) {
-            List<SonicPulseConfig.HistoryEntry> favs = config.getFavoriteHistory();
-            if (!favs.isEmpty()) {
-                int ni = 0;
-                if (curUri != null) {
-                    for (int i = 0; i < favs.size(); i++) {
-                        if (favs.get(i).url.equals(curUri)) {
-                            ni = (i + 1) % favs.size();
-                            break;
-                        }
-                    }
-                }
-                SonicPulseConfig.HistoryEntry n = favs.get(ni);
-                playTrack(n.url, n.label, n.type);
-            }
-        } else if (config.activeMode == SonicPulseConfig.SessionMode.LOCAL) {
-            List<File> localFiles = new ArrayList<>();
-            String path = config.localMusicPath.isEmpty()
-                    ? net.minecraft.client.Minecraft.getInstance().gameDirectory.toPath().resolve("sonicpulse")
-                            .resolve("music").toString()
-                    : config.localMusicPath;
-            File dr = new File(path);
-            if (dr.exists() && dr.isDirectory()) {
-                File[] fls = dr.listFiles((d, n) -> {
-                    String nm = n.toLowerCase();
-                    return nm.endsWith(".mp3") || nm.endsWith(".wav") || nm.endsWith(".flac");
-                });
-                if (fls != null)
-                    Collections.addAll(localFiles, fls);
-            }
-            if (!localFiles.isEmpty()) {
-                int ni = 0;
-                if (curUri != null) {
-                    for (int i = 0; i < localFiles.size(); i++) {
-                        File fl = localFiles.get(i);
-                        if (curUri.equals(fl.getAbsolutePath()) || curUri.equals(fl.toURI().toString())
-                                || curUri.replace("\\", "/").endsWith(fl.getName())) {
-                            ni = (i + 1) % localFiles.size();
-                            break;
-                        }
-                    }
-                }
-                File n = localFiles.get(ni);
-                playTrack(n.getAbsolutePath(), n.getName(), "Local");
-            }
-        } else if (config.activeMode == SonicPulseConfig.SessionMode.HISTORY) {
-            List<SonicPulseConfig.HistoryEntry> hist = config.history.stream().filter(e -> !e.favorite)
-                    .sorted(Comparator.comparing(e -> e.label)).collect(Collectors.toList());
-            if (!hist.isEmpty()) {
-                int ni = 0;
-                if (curUri != null) {
-                    for (int i = 0; i < hist.size(); i++) {
-                        if (hist.get(i).url.equals(curUri)) {
-                            ni = (i + 1) % hist.size();
-                            break;
-                        }
-                    }
-                }
-                SonicPulseConfig.HistoryEntry n = hist.get(ni);
-                playTrack(n.url, n.label, n.type);
-            }
-        }
+        playNextInList(endingTrack, true);
+    }
+
+    private void playNextInList(AudioTrack endingTrack, boolean clearBuffer) {
+        playRelativeInList(endingTrack, 1, clearBuffer);
     }
 
     public void playPreviousInList(AudioTrack currentTrack) {
+        playRelativeInList(currentTrack, -1, true);
+    }
+
+    private void playRelativeInList(AudioTrack currentTrack, int delta, boolean clearBuffer) {
         String curUri = currentTrack != null ? currentTrack.getInfo().uri : null;
         SonicPulseConfig config = SonicPulseConfig.get();
         if (config.activeMode == SonicPulseConfig.SessionMode.FAVOURITES) {
@@ -188,18 +175,18 @@ public class SonicPulseEngine {
                 if (curUri != null) {
                     for (int i = 0; i < favs.size(); i++) {
                         if (favs.get(i).url.equals(curUri)) {
-                            ni = (i - 1 + favs.size()) % favs.size();
+                            ni = Math.floorMod(i + delta, favs.size());
                             break;
                         }
                     }
                 }
                 SonicPulseConfig.HistoryEntry n = favs.get(ni);
-                playTrack(n.url, n.label, n.type);
+                playTrack(n.url, n.label, n.type, clearBuffer);
             }
         } else if (config.activeMode == SonicPulseConfig.SessionMode.LOCAL) {
             List<File> localFiles = new ArrayList<>();
             String path = config.localMusicPath.isEmpty()
-                    ? net.minecraft.client.Minecraft.getInstance().gameDirectory.toPath().resolve("sonicpulse")
+                    ? Minecraft.getInstance().gameDirectory.toPath().resolve("sonicpulse")
                             .resolve("music").toString()
                     : config.localMusicPath;
             File dr = new File(path);
@@ -208,8 +195,10 @@ public class SonicPulseEngine {
                     String nm = n.toLowerCase();
                     return nm.endsWith(".mp3") || nm.endsWith(".wav") || nm.endsWith(".flac");
                 });
-                if (fls != null)
+                if (fls != null) {
+                    Arrays.sort(fls, Comparator.comparing(File::getName, String.CASE_INSENSITIVE_ORDER));
                     Collections.addAll(localFiles, fls);
+                }
             }
             if (!localFiles.isEmpty()) {
                 int ni = 0;
@@ -218,13 +207,13 @@ public class SonicPulseEngine {
                         File fl = localFiles.get(i);
                         if (curUri.equals(fl.getAbsolutePath()) || curUri.equals(fl.toURI().toString())
                                 || curUri.replace("\\", "/").endsWith(fl.getName())) {
-                            ni = (i - 1 + localFiles.size()) % localFiles.size();
+                            ni = Math.floorMod(i + delta, localFiles.size());
                             break;
                         }
                     }
                 }
                 File n = localFiles.get(ni);
-                playTrack(n.getAbsolutePath(), n.getName(), "Local");
+                playTrack(n.getAbsolutePath(), n.getName(), "Local", clearBuffer);
             }
         } else if (config.activeMode == SonicPulseConfig.SessionMode.HISTORY) {
             List<SonicPulseConfig.HistoryEntry> hist = config.history.stream().filter(e -> !e.favorite)
@@ -234,23 +223,33 @@ public class SonicPulseEngine {
                 if (curUri != null) {
                     for (int i = 0; i < hist.size(); i++) {
                         if (hist.get(i).url.equals(curUri)) {
-                            ni = (i - 1 + hist.size()) % hist.size();
+                            ni = Math.floorMod(i + delta, hist.size());
                             break;
                         }
                     }
                 }
                 SonicPulseConfig.HistoryEntry n = hist.get(ni);
-                playTrack(n.url, n.label, n.type);
+                playTrack(n.url, n.label, n.type, clearBuffer);
             }
         }
     }
 
     public void updateEqualizer() {
-        /* Logic moved to AudioOutput for real-time bypass */ }
+        /* Logic moved to AudioOutput for real-time bypass */
+    }
 
     public void tick() {
-        if (buffering && buffer.size() >= bufferGoal)
+        Minecraft client = Minecraft.getInstance();
+        if (client != null) {
+            output.setPlayerSubmerged(client.player != null && client.player.isUnderWater());
+            output.setMinecraftVolume(client.options != null
+                    ? client.options.getFinalSoundSourceVolume(SoundSource.MUSIC)
+                    : 1.0f);
+        }
+
+        if (buffering && (buffer.size() >= bufferGoal || trackEnded || (!pending && player.getPlayingTrack() == null))) {
             buffering = false;
+        }
     }
 
     public void clearPending() {
@@ -264,14 +263,16 @@ public class SonicPulseEngine {
     }
 
     public boolean isActiveOrPending() {
-        return player.getPlayingTrack() != null || pending || buffering;
+        return player.getPlayingTrack() != null || pending || buffering || !buffer.isEmpty();
     }
 
     public void stop() {
+        playlistQueue.clear();
         player.stopTrack();
         pending = false;
         buffering = false;
         trackUsesBuffer = false;
+        trackEnded = true;
         buffer.clear();
         output.stop();
     }

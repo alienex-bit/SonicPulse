@@ -5,7 +5,11 @@ import com.google.gson.GsonBuilder;
 import net.minecraft.client.Minecraft;
 import java.io.File;
 import java.io.FileReader;
-import java.io.FileWriter;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -148,6 +152,8 @@ public class SonicPulseConfig {
     public float stereoWidth = 1.0f;
     // New Toggle: Enables Automatic Muffling when head is underwater
     public boolean underwaterMuffle = true;
+    // Security: Server-initiated playback is opt-in
+    public boolean allowServerPlayback = false;
 
     public PulseIntensity pulseIntensity = PulseIntensity.NORMAL;
     public PulseDecay pulseDecay = PulseDecay.FLUID;
@@ -183,7 +189,7 @@ public class SonicPulseConfig {
         }
     }
 
-    public void addHistory(String type, String label, String url) {
+    public synchronized void addHistory(String type, String label, String url) {
         HistoryEntry entry = history.stream().filter(e -> e.url.equals(url)).findFirst().orElse(null);
         if (entry != null) {
             if (!entry.favorite) {
@@ -205,7 +211,7 @@ public class SonicPulseConfig {
         save();
     }
 
-    public List<HistoryEntry> getFavoriteHistory() {
+    public synchronized List<HistoryEntry> getFavoriteHistory() {
         return history.stream().filter(e -> e.favorite).toList();
     }
 
@@ -291,7 +297,7 @@ public class SonicPulseConfig {
 
     private static final File FILE = new File(Minecraft.getInstance().gameDirectory, "config/sonicpulse.json");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static SonicPulseConfig instance;
+    private static volatile SonicPulseConfig instance;
     private static final ExecutorService SAVE_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "SonicPulse-ConfigSave");
         t.setDaemon(true);
@@ -299,59 +305,82 @@ public class SonicPulseConfig {
     });
 
     public static SonicPulseConfig get() {
-        if (instance == null) {
-            if (FILE.exists()) {
-                try (FileReader r = new FileReader(FILE)) {
-                    instance = GSON.fromJson(r, SonicPulseConfig.class);
-                } catch (Exception e) {
-                    // Config is corrupted — back it up and start fresh
-                    File backup = new File(FILE.getPath() + ".bak");
-                    backup.delete();
-                    FILE.renameTo(backup);
-                    System.err.println(
-                            "[SonicPulse] Config corrupted, backed up to sonicpulse.json.bak and reset to defaults.");
-                    instance = new SonicPulseConfig();
-                }
-            } else {
-                instance = new SonicPulseConfig();
-            }
+        SonicPulseConfig current = instance;
+        if (current != null) {
+            return current;
         }
+        synchronized (SonicPulseConfig.class) {
+            if (instance == null) {
+                SonicPulseConfig loaded;
+                if (FILE.exists()) {
+                    try (FileReader r = new FileReader(FILE, StandardCharsets.UTF_8)) {
+                        loaded = GSON.fromJson(r, SonicPulseConfig.class);
+                        if (loaded == null) {
+                            loaded = new SonicPulseConfig();
+                        }
+                    } catch (Exception e) {
+                        // Config is corrupted — back it up and start fresh
+                        File backup = new File(FILE.getPath() + ".bak");
+                        backup.delete();
+                        FILE.renameTo(backup);
+                        System.err.println(
+                                "[SonicPulse] Config corrupted, backed up to sonicpulse.json.bak and reset to defaults.");
+                        loaded = new SonicPulseConfig();
+                    }
+                } else {
+                    loaded = new SonicPulseConfig();
+                }
 
-        // --- Null-safety / schema migration ---
-        if (instance.activeMode == null)
-            instance.activeMode = SessionMode.NONE;
-        if (instance.bgEffect == null)
-            instance.bgEffect = BgEffect.OFF;
-        if (instance.skin == null)
-            instance.skin = Skin.DEFAULT;
-        if (instance.visStyle == null)
-            instance.visStyle = VisualizerStyle.SOLID;
-        if (instance.ribbonLayout == null)
-            instance.ribbonLayout = RibbonLayout.LOG_TRK_BAR;
-        if (instance.history == null)
-            instance.history = new ArrayList<>();
-        if (instance.hudWidth == 0.0f)
-            instance.hudWidth = 1.0f;
-        if (instance.radioPresetNames == null)
-            instance.radioPresetNames = new String[] { "Preset 1", "Preset 2", "Preset 3", "Preset 4" };
-        if (instance.radioPresetUrls == null)
-            instance.radioPresetUrls = new String[] { "", "", "", "" };
-        if (instance.streamBufferSeconds == 0)
-            instance.streamBufferSeconds = 5;
-        // Future field migrations go here, gated on configVersion:
-        // if (instance.configVersion < 2) { instance.newField = DEFAULT;
-        // instance.configVersion = 2; }
+                // --- Null-safety / schema migration ---
+                if (loaded.activeMode == null)
+                    loaded.activeMode = SessionMode.NONE;
+                if (loaded.bgEffect == null)
+                    loaded.bgEffect = BgEffect.OFF;
+                if (loaded.skin == null)
+                    loaded.skin = Skin.DEFAULT;
+                if (loaded.visStyle == null)
+                    loaded.visStyle = VisualizerStyle.SOLID;
+                if (loaded.ribbonLayout == null)
+                    loaded.ribbonLayout = RibbonLayout.LOG_TRK_BAR;
+                if (loaded.history == null)
+                    loaded.history = new ArrayList<>();
+                if (loaded.hudWidth == 0.0f)
+                    loaded.hudWidth = 1.0f;
+                if (loaded.radioPresetNames == null)
+                    loaded.radioPresetNames = new String[] { "Preset 1", "Preset 2", "Preset 3", "Preset 4" };
+                if (loaded.radioPresetUrls == null)
+                    loaded.radioPresetUrls = new String[] { "", "", "", "" };
+                if (loaded.streamBufferSeconds == 0)
+                    loaded.streamBufferSeconds = 5;
+                // Future field migrations go here, gated on configVersion:
+                // if (loaded.configVersion < 2) { loaded.newField = DEFAULT;
+                // loaded.configVersion = 2; }
 
-        return instance;
+                instance = loaded;
+            }
+            return instance;
+        }
     }
 
     public static void save() {
-        SonicPulseConfig snapshot = get(); // capture reference before thread hop
+        SonicPulseConfig snapshot = get();
+        final String json;
+        synchronized (snapshot) {
+            json = GSON.toJson(snapshot);
+        }
         SAVE_EXECUTOR.submit(() -> {
             try {
-                FILE.getParentFile().mkdirs();
-                try (FileWriter w = new FileWriter(FILE)) {
-                    GSON.toJson(snapshot, w);
+                Path target = FILE.toPath();
+                Path parent = target.getParent();
+                if (parent != null) {
+                    Files.createDirectories(parent);
+                }
+                Path tmp = target.resolveSibling(target.getFileName().toString() + ".tmp");
+                Files.writeString(tmp, json, StandardCharsets.UTF_8);
+                try {
+                    Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                } catch (AtomicMoveNotSupportedException e) {
+                    Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
                 }
             } catch (Exception e) {
                 System.err.println("[SonicPulse] Failed to save config: " + e.getMessage());

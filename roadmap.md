@@ -1,4 +1,4 @@
-# 🎵 SonicPulse Strategic Roadmap (Minecraft 26.3 "Wilderness Bound")
+# 🎵 SonicPulse Strategic Roadmap (Minecraft 1.21.11 / 26.3)
 
 ## 🎯 Project Vision
 SonicPulse aims to be the most performant and aesthetically versatile media HUD for the Fabric ecosystem, providing professional-grade audio visualization and stream management without impacting game stability.
@@ -57,4 +57,4 @@ SonicPulse aims to be the most performant and aesthetically versatile media HUD 
 - [ ] **Dynamic Metadata Fetching**: Automatic labeling for raw URLs lacking metadata.
 
 ---
-*Last Updated: October 2026 (Updated to Minecraft 26.3 "Wilderness Bound")*
+*Last Updated: November 2026 (Updated for Minecraft 1.21.11 & 26.3)*

@@ -1,6 +1,6 @@
 # SonicPulse
 
-A professional audio streaming and reactive visualizer mod for Minecraft Fabric, supporting **Minecraft 26.3 ("Wilderness Bound")** and **1.21.4**.
+A professional audio streaming and reactive visualizer mod for Minecraft Fabric, supporting **Minecraft 26.3 ("Wilderness Bound")**, **1.21.11**, and **1.21.4**.
 
 Stream music from **YouTube, SoundCloud, Bandcamp, Vimeo**, internet radio, and local files — all from inside Minecraft, with a stunning reactive HUD ribbon that pulses to the beat.
 
@@ -24,6 +24,7 @@ Stream music from **YouTube, SoundCloud, Bandcamp, Vimeo**, internet radio, and 
 * **SonicPulse Logo** – Animated text logo with per-color customization
 
 ### 🎧 DSP Audio Engine
+* **Volume Control & Game Audio Sync** – 0–100% output volume slider that scales with Minecraft's Master & Music volume
 * **Bass & Treble EQ** – Frequency-specific gain sliders (–100% to +100%)
 * **Stereo Widening** – Soundstage expansion from Mono (0%) to Super Wide (200%)
 * **Underwater Auto-Muffle** – Automatic low-pass filter when submerged
@@ -58,6 +59,12 @@ Choose the release file matching your Minecraft version:
 * **Fabric API:** `>= 0.161.0+26.3`
 * **Java:** `25 LTS`
 
+### For Minecraft 1.21.11 (v1.1.0+1.21.11)
+* **Minecraft:** `1.21.11`
+* **Fabric Loader:** `>= 0.18.1`
+* **Fabric API:** `0.141.5+1.21.11`
+* **Java:** `21`
+
 ### For Minecraft 1.21.4 (v1.0.0)
 * **Minecraft:** `1.21.4`
 * **Fabric Loader:** `>= 0.16.9`
@@ -67,7 +74,7 @@ Choose the release file matching your Minecraft version:
 ### Steps
 1. Install **Fabric Loader** for your Minecraft version.
 2. Download **Fabric API** and place it in your `.minecraft/mods` folder.
-3. Download the matching **SonicPulse** version (`SonicPulse-1.1.0.jar` for 26.3, or `SonicPulse-1.0.0.jar` for 1.21.4).
+3. Download the matching **SonicPulse** version (`SonicPulse-1.1.0.jar` for 26.3, `SonicPulse-1.1.0+1.21.11.jar` for 1.21.11, or `SonicPulse-1.0.0.jar` for 1.21.4).
 4. Place the `.jar` file in your `.minecraft/mods` folder.
 5. Launch Minecraft using the Fabric profile.
 6. Press `P` in-game to open the SonicPulse config screen and start streaming!
@@ -89,7 +96,7 @@ Press `P` in-game to open the full configuration screen. Nine dedicated tabs put
 | ★ **FAVS** | Manage saved favorites — reorder, rename, and quick-play |
 | 📻 **RADIO** | M3U internet radio with BBC presets and 4 custom save slots |
 | ♫ **LOCAL** | Browse and play audio files from your computer |
-| ⚙ **ENGINE** | Stream buffering, buffer bar, Bass EQ, Treble EQ, Stereo Width, Underwater muffle |
+| ⚙ **ENGINE** | Stream buffering, buffer bar, Bass/Treble EQ, Volume, Stereo Width, Underwater muffle, Server Auto-Play |
 | **i ABOUT** | Version info, update checker, donation QR code |
 
 ### Visual Effects Detail
@@ -135,6 +142,13 @@ This project is licensed under the [MIT License](LICENSE).
 ---
 
 ## 📊 Version History
+
+### v1.1.0+1.21.11 – (November 2026)
+* **NEW:** Full compatibility with **Minecraft 1.21.11** (Java 21, Fabric Loader `>= 0.18.1`, ModMenu `17.0.0`)
+* **NEW:** Output **Volume** slider (0–100%) in Engine tab, synced with Minecraft's Master & Music volume sliders
+* **NEW:** Full playlist queueing — all tracks in a loaded playlist now play in sequence
+* **SECURITY:** Hardened `PlayUrlPayload` broadcasting with operator permission checks, `http(s)`-only URL validation, length cap, 3s rate limit, and opt-in **Server Auto-Play** toggle
+* **FIXED:** Short tracks getting stuck in buffering, audio thread start/stop races, off-thread Minecraft API calls, error spin loops, config save races (now snapshot + atomic write), failed-load history/title pollution, local file sort order, biquad filter click resets, and visualizer peak decay
 
 ### v1.1.0 – (October 2, 2026)
 * **NEW:** Full compatibility with **Minecraft 26.3 ("Wilderness Bound")**

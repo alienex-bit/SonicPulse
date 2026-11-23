@@ -1,7 +1,7 @@
 import java.util.Properties
 
 plugins {
-    id 'fabric-loom' version '1.18.2'
+    id 'net.fabricmc.fabric-loom-remap' version '1.18.2'
     id 'maven-publish'
 }
 
@@ -37,8 +37,9 @@ repositories {
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
     implementation "dev.arbjerg:lavaplayer:2.2.3"
     include "dev.arbjerg:lavaplayer:2.2.3"
@@ -68,7 +69,7 @@ dependencies {
     implementation 'org.apache.logging.log4j:log4j-core:2.20.0'
     implementation 'org.apache.logging.log4j:log4j-api:2.20.0'
 
-    compileOnly "com.terraformersmc:modmenu:22.0.0-alpha.1"
+    modCompileOnly "com.terraformersmc:modmenu:17.0.0"
 }
 
 processResources {
@@ -88,7 +89,7 @@ processResources {
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
 }
 
-def targetJavaVersion = 25
+def targetJavaVersion = 21
 tasks.withType(JavaCompile).configureEach {
     it.options.encoding = "UTF-8"
     it.options.release.set(targetJavaVersion)
@@ -100,8 +101,8 @@ java {
         languageVersion = JavaLanguageVersion.of(targetJavaVersion)
     }
     withSourcesJar()
-    sourceCompatibility = JavaVersion.VERSION_25
-    targetCompatibility = JavaVersion.VERSION_25
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
 sourcesJar {

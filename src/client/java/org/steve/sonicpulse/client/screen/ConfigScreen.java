@@ -3,7 +3,7 @@ package org.steve.sonicpulse.client.screen;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.ConfirmLinkScreen;
 import net.minecraft.client.gui.components.Button;
@@ -697,12 +697,29 @@ public class ConfigScreen extends Screen {
                 trebleSlider.setTooltip(tt("Boost or cut high frequency treble (-100% to +100%)"));
                 addTinted(trebleSlider, tc);
 
-                AbstractSliderButton widthSl = new AbstractSliderButton(contentX, tabY + 125, contentW, 20,
-                        Component.literal("Stereo Width: " + (int) (config.stereoWidth * 100) + "%"),
+                AbstractSliderButton volSlider = new AbstractSliderButton(contentX, tabY + 125, colW7, 20,
+                        Component.literal("Volume: " + config.volume + "%"),
+                        Math.max(0.0, Math.min(1.0, config.volume / 100.0))) {
+                    @Override
+                    protected void updateMessage() {
+                        setMessage(Component.literal("Volume: " + config.volume + "%"));
+                    }
+
+                    @Override
+                    protected void applyValue() {
+                        config.volume = (int) Math.round(value * 100.0);
+                        SonicPulseConfig.save();
+                    }
+                };
+                volSlider.setTooltip(tt("Adjust SonicPulse output volume (also scales with Minecraft Master & Music volume)"));
+                addTinted(volSlider, tc);
+
+                AbstractSliderButton widthSl = new AbstractSliderButton(contentX + colW7 + 10, tabY + 125, colW7, 20,
+                        Component.literal("Stereo: " + (int) (config.stereoWidth * 100) + "%"),
                         (config.stereoWidth / 2.0)) {
                     @Override
                     protected void updateMessage() {
-                        setMessage(Component.literal("Stereo Width: " + (int) (config.stereoWidth * 100) + "%"));
+                        setMessage(Component.literal("Stereo: " + (int) (config.stereoWidth * 100) + "%"));
                     }
 
                     @Override
@@ -714,14 +731,22 @@ public class ConfigScreen extends Screen {
                 widthSl.setTooltip(tt("Expand the soundstage (0% = Mono, 100% = Normal, 200% = Super Wide)"));
                 addTinted(widthSl, tc);
 
-                // MASTER UNDERWATER MUFFLE TOGGLE
+                // MASTER UNDERWATER MUFFLE + SERVER AUTO-PLAY TOGGLES
                 addTinted(Button.builder(
-                        Component.literal("Underwater Auto-Muffle: " + (config.underwaterMuffle ? "§aON" : "§cOFF")), b -> {
+                        Component.literal("Underwater Muffle: " + (config.underwaterMuffle ? "§aON" : "§cOFF")), b -> {
                             config.underwaterMuffle = !config.underwaterMuffle;
                             SonicPulseConfig.save();
                             refreshWidgets();
-                        }).bounds(contentX, tabY + 150, contentW, 20)
+                        }).bounds(contentX, tabY + 150, colW7, 20)
                         .tooltip(tt("Toggle automatic low-pass filtering when submerged underwater.")).build(), tc);
+
+                addTinted(Button.builder(
+                        Component.literal("Server Auto-Play: " + (config.allowServerPlayback ? "§aON" : "§cOFF")), b -> {
+                            config.allowServerPlayback = !config.allowServerPlayback;
+                            SonicPulseConfig.save();
+                            refreshWidgets();
+                        }).bounds(contentX + colW7 + 10, tabY + 150, colW7, 20)
+                        .tooltip(tt("Allow server operators to stream audio URLs to your client.")).build(), tc);
                 break;
 
             case 8: // ABOUT
@@ -819,8 +844,10 @@ public class ConfigScreen extends Screen {
                 String nm = n.toLowerCase();
                 return nm.endsWith(".mp3") || nm.endsWith(".wav") || nm.endsWith(".flac");
             });
-            if (fls != null)
+            if (fls != null) {
+                java.util.Arrays.sort(fls, Comparator.comparing(File::getName, String.CASE_INSENSITIVE_ORDER));
                 Collections.addAll(localFiles, fls);
+            }
         }
     }
 
@@ -869,7 +896,7 @@ public class ConfigScreen extends Screen {
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor context, int mx, int my, float d) {
+    public void render(GuiGraphics context, int mx, int my, float d) {
         int x = (width - BOX_WIDTH) / 2, y = (height - BOX_HEIGHT) / 2;
         int contentX = x + SIDEBAR_WIDTH + 10, contentW = BOX_WIDTH - SIDEBAR_WIDTH - 20, tabY = y + 42;
 
@@ -879,10 +906,10 @@ public class ConfigScreen extends Screen {
         context.fill(x + SIDEBAR_WIDTH, y + 38, x + BOX_WIDTH, y + BOX_HEIGHT - 5,
                 (PASTEL[currentTab] & 0x00FFFFFF) | 0x22000000);
 
-        context.outline(x, y, BOX_WIDTH, BOX_HEIGHT, config.skin.getBorderColor());
+        context.renderOutline(x, y, BOX_WIDTH, BOX_HEIGHT, config.skin.getBorderColor());
         context.fill(x + SIDEBAR_WIDTH, y + 38, x + SIDEBAR_WIDTH + 1, y + BOX_HEIGHT - 5, 0x44FFFFFF);
 
-        super.extractRenderState(context, mx, my, d);
+        super.render(context, mx, my, d);
 
         for (TintRecord tr : widgetTints) {
             context.fill(tr.widget.getX(), tr.widget.getY(), tr.widget.getX() + tr.widget.getWidth(),
@@ -895,16 +922,16 @@ public class ConfigScreen extends Screen {
         String trkTxt = (config.currentTitle != null && isEnginePlaying)
                 ? " » §f" + this.font.plainSubstrByWidth(config.currentTitle, 115)
                 : "";
-        context.text(this.font, Component.literal(stateTxt + " §8(" + config.activeMode.name() + ")" + trkTxt), x + 5,
+        context.drawString(this.font, Component.literal(stateTxt + " §8(" + config.activeMode.name() + ")" + trkTxt), x + 5,
                 y + 6, 0xFFFFFFFF, false);
 
-        context.outline(x + 4, y + 39 + (currentTab * 18), SIDEBAR_WIDTH - 8, 18, PASTEL[currentTab]);
+        context.renderOutline(x + 4, y + 39 + (currentTab * 18), SIDEBAR_WIDTH - 8, 18, PASTEL[currentTab]);
 
         int playBtnW = 65, playLocalX = x + BOX_WIDTH - playBtnW - 8, playFavsX = playLocalX - playBtnW - 5;
         context.fill(playFavsX, y + 20, playFavsX + playBtnW, y + 33, 0x5555FF55);
         context.fill(playLocalX, y + 20, playLocalX + playBtnW, y + 33, 0x5555FF55);
-        context.centeredText(this.font, Component.literal("Play Favs"), playFavsX + playBtnW / 2, y + 23, 0xFFFFFF);
-        context.centeredText(this.font, Component.literal("Play Local"), playLocalX + playBtnW / 2, y + 23, 0xFFFFFF);
+        context.drawCenteredString(this.font, Component.literal("Play Favs"), playFavsX + playBtnW / 2, y + 23, 0xFFFFFFFF);
+        context.drawCenteredString(this.font, Component.literal("Play Local"), playLocalX + playBtnW / 2, y + 23, 0xFFFFFFFF);
 
         int deckX = x + BOX_WIDTH - 85;
         if (isEnginePlaying && !isEnginePaused) {
@@ -918,7 +945,7 @@ public class ConfigScreen extends Screen {
         if (currentTab == 1 && config.bgEffect != SonicPulseConfig.BgEffect.OFF) {
             int divY = tabY + 132;
             context.fill(contentX, divY, contentX + contentW, divY + 1, 0x44FFFFFF);
-            context.text(this.font, Component.literal("§e" + config.bgEffect.name() + " TWEAKS"), contentX, divY + 4,
+            context.drawString(this.font, Component.literal("§e" + config.bgEffect.name() + " TWEAKS"), contentX, divY + 4,
                     0xFFFFFFFF, false);
         }
 
@@ -926,7 +953,7 @@ public class ConfigScreen extends Screen {
         if (currentTab == 7) {
             int divY = tabY + 84;
             context.fill(contentX, divY, contentX + contentW, divY + 1, 0x44FFFFFF);
-            context.text(this.font, Component.literal("§eDSP EQUALIZER"), contentX, divY + 4, 0xFFFFFFFF, false);
+            context.drawString(this.font, Component.literal("§eDSP EQUALIZER"), contentX, divY + 4, 0xFFFFFFFF, false);
         }
 
         AudioTrack playingTrack = SonicPulseClient.getEngine().getPlayer().getPlayingTrack();
@@ -940,7 +967,7 @@ public class ConfigScreen extends Screen {
                 for (int i = historyScrollOffset; i < Math.min(hSorted.size(), historyScrollOffset + 7); i++) {
                     if (hSorted.get(i).url.equals(activeUri)) {
                         int rY = tabY + 20 + ((i - historyScrollOffset) * 19);
-                        context.outline(contentX - 1, rY - 1, contentW - 38, 21, highlightColor);
+                        context.renderOutline(contentX - 1, rY - 1, contentW - 38, 21, highlightColor);
                     }
                 }
             } else if (currentTab == 4) {
@@ -948,7 +975,7 @@ public class ConfigScreen extends Screen {
                 for (int i = favScrollOffset; i < Math.min(fvs.size(), favScrollOffset + 8); i++) {
                     if (fvs.get(i).url.equals(activeUri)) {
                         int rY = tabY + ((i - favScrollOffset) * 19);
-                        context.outline(contentX + 19, rY - 1, contentW - 93, 21, highlightColor);
+                        context.renderOutline(contentX + 19, rY - 1, contentW - 93, 21, highlightColor);
                     }
                 }
             } else if (currentTab == 6) {
@@ -957,7 +984,7 @@ public class ConfigScreen extends Screen {
                     if (activeUri.equals(fl.getAbsolutePath()) || activeUri.equals(fl.toURI().toString())
                             || activeUri.replace("\\", "/").endsWith(fl.getName())) {
                         int rY = tabY + 26 + ((i - localScrollOffset) * 19);
-                        context.outline(contentX - 1, rY - 1, contentW - 13, 21, highlightColor);
+                        context.renderOutline(contentX - 1, rY - 1, contentW - 13, 21, highlightColor);
                     }
                 }
             }
@@ -995,25 +1022,25 @@ public class ConfigScreen extends Screen {
         }
 
         if (currentTab == 0) {
-            context.text(this.font, Component.literal("Enter audio URL to stream:"), contentX, tabY + 3, 0xFFFFFFFF,
+            context.drawString(this.font, Component.literal("Enter audio URL to stream:"), contentX, tabY + 3, 0xFFFFFFFF,
                     false);
-            context.text(this.font, Component.literal("§ePlatforms: YouTube, SoundCloud, Bandcamp, Vimeo"), contentX,
-                    tabY + 45, 0xBBBBBB, false);
-            context.text(this.font, Component.literal("§eFormats: MP3, FLAC, WAV, WebM, MP4, M3U"), contentX,
-                    tabY + 65, 0xBBBBBB, false);
-            context.text(this.font, Component.literal("§aRecently Streamed:"), contentX, tabY + 105, 0xFFFFFFFF,
+            context.drawString(this.font, Component.literal("§ePlatforms: YouTube, SoundCloud, Bandcamp, Vimeo"), contentX,
+                    tabY + 45, 0xFFBBBBBB, false);
+            context.drawString(this.font, Component.literal("§eFormats: MP3, FLAC, WAV, WebM, MP4, M3U"), contentX,
+                    tabY + 65, 0xFFBBBBBB, false);
+            context.drawString(this.font, Component.literal("§aRecently Streamed:"), contentX, tabY + 105, 0xFFFFFFFF,
                     false);
         }
 
         if (currentTab == 8) {
             int centerX = contentX + (contentW / 2);
-            context.centeredText(this.font, Component.literal("§l§nSONICPULSE"), centerX, tabY + 5,
+            context.drawCenteredString(this.font, Component.literal("§l§nSONICPULSE"), centerX, tabY + 5,
                     0xFFFF00FF);
-            context.centeredText(this.font, Component.literal("Professional Media Control Unit"), centerX,
-                    tabY + 18, 0xAAAAAA);
-            context.centeredText(this.font, Component.literal("Version: §a" + CURRENT_VERSION), centerX,
+            context.drawCenteredString(this.font, Component.literal("Professional Media Control Unit"), centerX,
+                    tabY + 18, 0xFFAAAAAA);
+            context.drawCenteredString(this.font, Component.literal("Version: §a" + CURRENT_VERSION), centerX,
                     tabY + 30, 0xFFFFFFFF);
-            context.centeredText(this.font, Component.literal("Created by: §bSteve Watkins"), centerX,
+            context.drawCenteredString(this.font, Component.literal("Created by: §bSteve Watkins"), centerX,
                     tabY + 44, 0xFFFFFFFF);
 
             int qrSize = 54;
@@ -1022,23 +1049,23 @@ public class ConfigScreen extends Screen {
             // White backing card for QR (matches printed QR background)
             context.fill(qrX - 3, qrY - 3, qrX + qrSize + 3, qrY + qrSize + 3, 0xFFFFFFFF);
             // Thin accent border
-            context.outline(qrX - 4, qrY - 4, qrSize + 8, qrSize + 8, PASTEL[8]);
+            context.renderOutline(qrX - 4, qrY - 4, qrSize + 8, qrSize + 8, PASTEL[8]);
             // Blit QR texture via GUI_TEXTURED pipeline: (pipeline, id, x, y, u, v, w, h, texW, texH)
             context.blit(RenderPipelines.GUI_TEXTURED, QR_CODE, qrX, qrY, 0.0f, 0.0f, qrSize, qrSize, qrSize, qrSize);
 
             if (config.showTooltips && mx >= qrX - 3 && mx <= qrX + qrSize + 3 && my >= qrY - 3
                     && my <= qrY + qrSize + 3) {
-                context.setTooltipForNextFrame(Component.literal("Scan to donate — or click \"Buy Steve a Coffee\" below!"), mx,
+                context.setTooltipForNextFrame(this.font, Component.literal("Scan to donate — or click \"Buy Steve a Coffee\" below!"), mx,
                         my);
             }
-            context.centeredText(this.font, Component.literal("§7Enjoying the vibes? Buy Steve a coffee!"),
+            context.drawCenteredString(this.font, Component.literal("§7Enjoying the vibes? Buy Steve a coffee!"),
                     centerX, tabY + 116, 0xAAFFFFFF);
         }
 
         boolean isNew = isVersionNewer(latestVersion, CURRENT_VERSION);
         String verText = isNew ? "§6Update Avail: V" + latestVersion : "§8V" + CURRENT_VERSION;
         int verW = this.font.width(verText);
-        context.text(this.font, Component.literal(verText), x + (SIDEBAR_WIDTH / 2) - (verW / 2), y + BOX_HEIGHT - 12,
+        context.drawString(this.font, Component.literal(verText), x + (SIDEBAR_WIDTH / 2) - (verW / 2), y + BOX_HEIGHT - 12,
                 0xFFFFFFFF, false);
         hudRenderer.render(context, true, 0, 0);
     }

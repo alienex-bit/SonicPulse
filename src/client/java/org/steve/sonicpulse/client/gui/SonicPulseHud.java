@@ -3,7 +3,7 @@ package org.steve.sonicpulse.client.gui;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FontDescription;
@@ -105,16 +105,16 @@ public class SonicPulseHud {
                 .append(Component.literal(" " + name + " ]").setStyle(ROBOTO));
     }
 
-    public void onHudRender(GuiGraphicsExtractor context, DeltaTracker tickCounter) {
+    public void onHudRender(GuiGraphics context, DeltaTracker tickCounter) {
         render(context, false, 0, 0);
     }
 
-    public void render(GuiGraphicsExtractor context, boolean isPreview, int previewX, int previewY) {
+    public void render(GuiGraphics context, boolean isPreview, int previewX, int previewY) {
         Minecraft client = Minecraft.getInstance();
-        if (client == null || client.gui.hud.isHidden())
+        if (client == null || client.options.hideGui)
             return;
         SonicPulseConfig cfg = SonicPulseConfig.get(); // fetch once for the whole frame
-        if (!cfg.hudVisible || (!isPreview && client.gui.screen() != null))
+        if (!cfg.hudVisible || (!isPreview && client.screen != null))
             return;
 
         SonicPulseEngine engine = SonicPulseClient.getEngine();
@@ -165,7 +165,7 @@ public class SonicPulseHud {
         context.pose().popMatrix();
     }
 
-    private void renderEffects(GuiGraphicsExtractor context, SonicPulseConfig cfg, float[] vData, int ribbonWidth, float bass,
+    private void renderEffects(GuiGraphics context, SonicPulseConfig cfg, float[] vData, int ribbonWidth, float bass,
             float spike) {
         int centerX = ribbonWidth / 2;
 
@@ -306,7 +306,7 @@ public class SonicPulseHud {
         }
     }
 
-    private void renderElements(GuiGraphicsExtractor context, Font font, SonicPulseConfig cfg, AudioTrack track,
+    private void renderElements(GuiGraphics context, Font font, SonicPulseConfig cfg, AudioTrack track,
             SonicPulseEngine engine, float[] vData, int ribbonWidth, int slotWidth, float bass,
             float spike) {
         boolean playing = track != null;
@@ -325,8 +325,8 @@ public class SonicPulseHud {
                 int noteColor = (noteAlpha << 24) | (cfg.barColor & 0xFFFFFF);
                 int logoY = playing ? 6 : 14;
                 int logoX = slotCenterX - (font.width(LOGO_BASE) / 2) - 4;
-                context.text(font, LOGO_BASE, logoX, logoY, cfg.titleColor | 0xFF000000, false);
-                context.text(font, Component.literal("♫"), logoX + font.width(LOGO_BASE), logoY,
+                context.drawString(font, LOGO_BASE, logoX, logoY, cfg.titleColor | 0xFF000000, false);
+                context.drawString(font, Component.literal("♫"), logoX + font.width(LOGO_BASE), logoY,
                         noteColor, false);
                 if (playing) {
                     if (track != cachedTrack) {
@@ -360,10 +360,10 @@ public class SonicPulseHud {
                     int tW = font.width(cachedTagText);
                     int timeW = font.width(cachedTimeText) + font.width(cachedTimeSuffix);
                     int subX = slotCenterX - ((tW + timeW) / 2);
-                    context.text(font, cachedTagText, subX, 18, cachedTagColor, false);
+                    context.drawString(font, cachedTagText, subX, 18, cachedTagColor, false);
                     int posX = subX + tW;
-                    context.text(font, cachedTimeText, posX, 18, 0xFFFFFFFF, false);
-                    context.text(font, cachedTimeSuffix, posX + font.width(cachedTimeText), 18,
+                    context.drawString(font, cachedTimeText, posX, 18, 0xFFFFFFFF, false);
+                    context.drawString(font, cachedTimeSuffix, posX + font.width(cachedTimeText), 18,
                             0xFFAAAAAA, false);
                 }
             } else if (slotType == 2 && cfg.showTrack && (playing || (engine != null && engine.isBuffering()))) { // TRACK
@@ -379,8 +379,8 @@ public class SonicPulseHud {
                     int tW = font.width(topText);
                     int bW = font.width(bottomText);
 
-                    context.text(font, style(topText), slotCenterX - (tW / 2), 6, 0xFFFFFFFF, false);
-                    context.text(font, style("§7" + bottomText), slotCenterX - (bW / 2), 18, 0xFFFFFFFF,
+                    context.drawString(font, style(topText), slotCenterX - (tW / 2), 6, 0xFFFFFFFF, false);
+                    context.drawString(font, style("§7" + bottomText), slotCenterX - (bW / 2), 18, 0xFFFFFFFF,
                             false);
                 }
                 // STANDARD MARQUEE ONCE PLAYING
@@ -404,11 +404,11 @@ public class SonicPulseHud {
                         }
                         context.pose().translate(slotCenterX - (maxW / 2f), 11);
                         context.pose().scale(tScale, tScale);
-                        context.text(font, style(currentScrolledText), 0, 0, 0xFFFFFFFF, false);
+                        context.drawString(font, style(currentScrolledText), 0, 0, 0xFFFFFFFF, false);
                     } else {
                         context.pose().translate(slotCenterX - (sTxtW / 2f), 11);
                         context.pose().scale(tScale, tScale);
-                        context.text(font, style(safeTrackNameCache), 0, 0, 0xFFFFFFFF, false);
+                        context.drawString(font, style(safeTrackNameCache), 0, 0, 0xFFFFFFFF, false);
                     }
                     context.pose().popMatrix();
                 }
