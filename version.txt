@@ -1,8 +1,28 @@
 SonicPulse Version History
 ==========================
 
-Current Version: 1.1.0
-----------------------
+Current Version: 1.1.0+1.21.11
+------------------------------
+Target Minecraft: 1.21.11
+Fabric Loader:    >=0.18.1
+Fabric API:       0.141.5+1.21.11
+Java Version:     21
+Release Date:     November 2026
+
+Changes & Improvements:
+- Backported SonicPulse v1.1.0 to Minecraft 1.21.11 using official Mojang mappings and Fabric Loom remap.
+- Added Output Volume slider (0-100%) in the Engine tab, synced with Minecraft's Master and Music volume sliders.
+- Hardened multiplayer PlayUrlPayload networking: operator permission check, http(s)-only URL validation, 2048-char length cap, 3s rate limit, and opt-in Server Auto-Play toggle.
+- Fixed short tracks getting stuck in buffering and preserved buffered tail audio on auto-advance.
+- Fixed audio thread start/stop races, moved Minecraft sound/player calls onto the client thread, and added error backoff to prevent tight retry loops.
+- Made config loading/saving thread-safe with on-thread JSON snapshots and atomic file writes.
+- Prevented failed track loads from overwriting HUD titles or polluting history, and eliminated duplicate history entries.
+- Added full playlist queueing, deterministic sorted local file order, biquad/muffle filter state resets, and per-frame visualizer peak normalization.
+- Updated ModMenu integration to 17.0.0.
+
+
+Previous Version: 1.1.0
+-----------------------
 Target Minecraft: 26.3 ("Wilderness Bound")
 Fabric Loader:    >=0.19.5
 Fabric API:       0.161.0+26.3
